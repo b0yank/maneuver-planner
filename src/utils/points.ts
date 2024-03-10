@@ -16,7 +16,6 @@ export const getAngleBetweenPoints = (startPoint: DOMPointReadOnly, endPoint: DO
     const angleDegrees = angleRadians * 180 / Math.PI;
     
     const angleCanvasCoordinates = (angleDegrees + 270) % 360;
-    console.log(angleCanvasCoordinates)
 
     return angleCanvasCoordinates;
 }

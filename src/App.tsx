@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from 'solid-js';
+import { createEffect, createSignal, onCleanup } from 'solid-js';
 import './App.css';
 import { ShipPosition } from './models/ship-position.model';
 import { Ship } from './models/ship.model';
@@ -16,13 +16,24 @@ const IDENTITY_SHIP_WIDTH_OFFSET = IDENTITY_SHIP_WIDTH - IDENTITY_SHIP_SIDE_OFFS
 
 const ROTATE_TOOL_WIDTH = 10;
 
+const DEFAULT_LINE_WIDTH = 1;
+const DEFAULT_STROKE_STYLE = '#000000';
+const DEFAULT_FILL_STYLE = '#121212';
+
 function App() {
   const [context, setContext] = createSignal<CanvasRenderingContext2D>();
-  const [color, setColor] = createSignal<string>('blue');
+  const [strokeColor, setStrokeColor] = createSignal<string>('black');
+  const [fillColor, setFillColor] = createSignal<string>('#343434');
+  const [lineWidth, setLineWidth] = createSignal<number>(1);
   const [scale, setScale] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
   const [selectedShipId, setSelectedShipId] = createSignal<string | null>(null);
-  const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | null>(null);
+  const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | 'copy' | null>(null);
+
+  const [shiftPressed, setShiftPressed] = createSignal<boolean>(false);
+
+  let nextId = '8';
+
   // const [scale, setScale] = createSignal<Matrix3x3>(Matrix3x3.eye);
 
   // const [ships, setShips] = createSignal<Ship[]>([
@@ -78,11 +89,18 @@ function App() {
     return shipPath;
   }
 
+  const getNextShipId = () => {
+    const id = nextId;
+
+    nextId = (Number(nextId) + 1).toString();
+    return id;
+  }
+
   // const drawShip = (shipPosition: ShipPosition) => {
   //   const ctx = context()!;
 
   //   ctx.resetTransform();
-  //   ctx.strokeStyle = color();
+  //   ctx.strokeStyle = strokeColor();
 
   //   const shipTransformationMatrix = scale().dot(shipPosition.rotate).dot(shipPosition.translate);
 
@@ -91,34 +109,21 @@ function App() {
 
   const drawShip = (ship: Ship) => {
     
+    const ctx = context()!;
+    ctx.strokeStyle = strokeColor();
+    ctx.setTransform(getShipDomMatrix(ship.position));
+    ctx.stroke(createShip());
+
     if (selectedShipId() === ship.id) {
       drawShipTools(ship);
     }
-    
-    // ctx.resetTransform();
-    
-    // const shipPosition = ship.position;
-    // const path = new Path2D();
-    // const shipTransformationMatrix = getShipDomMatrix(shipPosition);
-    // path.addPath(createShip(), shipTransformationMatrix)
-    
-    const ctx = context()!;
-    ctx.strokeStyle = color();
-    ctx.setTransform(getShipDomMatrix(ship.position));
-    ctx.stroke(createShip());
-    ctx.beginPath();
-    // ctx.stroke(path);
-
-    // ctx.setTransform(ship);
-
-    // ctx.strokeStyle = '#000000';
   }
 
   // const drawShip = (ship: Ship) => {
   //   const ctx = context()!;
 
   //   ctx.resetTransform();
-  //   ctx.strokeStyle = color();
+  //   ctx.strokeStyle = strokeColor();
   //   ctx.translate(ship.origin.x, ship.origin.y);
 
   //   ctx.scale(scale(), scale());
@@ -146,34 +151,58 @@ function App() {
     const context = canvas.getContext('2d')!;
     setContext(context);
 
-    context.clearRect(0, 0, CANVAS_LENGTH, CANVAS_WIDTH)
+    context.clearRect(0, 0, CANVAS_LENGTH, CANVAS_WIDTH);
+    context.lineWidth = DEFAULT_LINE_WIDTH;
+    context.strokeStyle = DEFAULT_STROKE_STYLE;
+    context.fillStyle = DEFAULT_FILL_STYLE;
+
     ships().forEach(drawShip);
     context.resetTransform();
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+  });
+
+  onCleanup(() => {
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
   });
 
   const drawShipTools = (ship: Ship): void => {
 
     const ctx = context()!;
 
-    ctx.strokeStyle = color();
+    ctx.strokeStyle = strokeColor();
     ctx.setTransform(getShipDomMatrix(ship.position));
     
     ctx.beginPath();
     ctx.arc(0, 0, panToolRadius(), 0, 2 * Math.PI);
+    ctx.fillStyle = '#234567';
+    ctx.closePath();
     ctx.stroke();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, rotateToolInnerRadius() + (rotateToolOuterRadius() - rotateToolInnerRadius()) / 2, 0, 2 * Math.PI);
+    ctx.lineWidth = rotateToolOuterRadius() - rotateToolInnerRadius();
+    ctx.strokeStyle = '#234567';
+    ctx.closePath();
+    ctx.stroke();
+    
+    ctx.lineWidth = lineWidth();
 
     ctx.beginPath();
     ctx.arc(0, 0, rotateToolInnerRadius(), 0, 2 * Math.PI);
+    ctx.strokeStyle = 'black';
     ctx.stroke();
-
+    
     ctx.beginPath();
     ctx.arc(0, 0, rotateToolOuterRadius(), 0, 2 * Math.PI);
     ctx.stroke();
 
-    ctx.beginPath();
-    ctx.arc(0, 0, 1, 0, 2*Math.PI)
+    ctx.fillStyle = fillColor();
+    ctx.strokeStyle = strokeColor();
     
-    ctx.stroke();
   }
 
   const getShipDomMatrix = (shipPosition: ShipPosition): DOMMatrix => {
@@ -191,7 +220,7 @@ function App() {
   }
 
   const rotateToolInnerRadius = () => {
-    return scaledShipLength() * 0.6;
+    return scaledShipLength() * 0.65;
   } 
 
   const rotateToolOuterRadius = () => {
@@ -200,10 +229,6 @@ function App() {
 
   const scaledShipLength = (): number => {
     return IDENTITY_SHIP_LENGTH * scale();
-  }
-
-  const scaledShipWidth = (): number => {
-    return IDENTITY_SHIP_WIDTH * scale();
   }
 
   const isPositionInShip = (position: DOMPointReadOnly, shipMatrix: DOMMatrix): boolean => {
@@ -225,6 +250,16 @@ function App() {
     }
 
     return null;
+  }
+
+  const copyShip = (ship: Ship): Ship => {
+    return {
+      id: getNextShipId(),
+      position: {
+        rotation: ship.position.rotation,
+        origin: DOMPointReadOnly.fromPoint(ship.position.origin)
+      }
+    }
   }
 
   const isPointInIdentityShip = (point: DOMPointReadOnly): boolean => {
@@ -283,42 +318,67 @@ function App() {
     setSelectedShipId(clickedShip?.id || null);
   }
 
-  const getMouseEventPosition = (event: MouseEvent) => {
+  const getMouseEventPosition = (event: MouseEvent | TouchEvent) => {
     const canvas = document.getElementById('canvas')!;
+
+    const clientX = event instanceof MouseEvent ? event.clientX : event.touches.item(0)!.clientX;
+    const clientY = event instanceof MouseEvent ? event.clientY : event.touches.item(0)!.clientY;
     
-    const canvasX = event.clientX - canvas.offsetLeft;
-    const canvasY = event.clientY - canvas.offsetTop;
+    const canvasX = clientX - canvas.offsetLeft;
+    const canvasY = clientY - canvas.offsetTop;
     
     return new DOMPointReadOnly(canvasX, canvasY);
   }
 
-  const handleToolsCommand = (clickPosition: DOMPointReadOnly) => {
+  const handleToolsCommand = (clickPosition: DOMPointReadOnly): boolean => {
     if (isClickOnPan(clickPosition)) {
 
       setMouseHoldStart(clickPosition);
+
+      if (shiftPressed()) {
+        
+        const shipCopy = copyShip(getSelectedShip()!);
+
+        setShips(ships => [...ships, shipCopy]);
+        setSelectedShipId(shipCopy.id);
+
+      }
+      
       setActiveCommand('pan');
+
+      return true
     } else if (isClickOnRotate(clickPosition)) {
 
       setMouseHoldStart(clickPosition);
       setActiveCommand('rotate');
 
       const selectedShip = getSelectedShip()!;
-      getAngleBetweenPoints(selectedShip.position.origin, clickPosition)
+      getAngleBetweenPoints(selectedShip.position.origin, clickPosition);
+      return true
     }
+
+    return false;
   }
   
-  const handleMouseDown = (event: MouseEvent) => {
+  const handleMouseDown = (event: MouseEvent | TouchEvent) => {
     
     const clickPosition = getMouseEventPosition(event);
 
-    if (!!selectedShipId() && isClickInTools(getSelectedShip()!, clickPosition)) {
-      handleToolsCommand(clickPosition);
-    } else {
+    let inputHandled = false;
+    if (!!selectedShipId()) {
+      if (activeCommand() === 'copy') {
+        
+      } else if (isClickInTools(getSelectedShip()!, clickPosition)) {
+        inputHandled = handleToolsCommand(clickPosition);
+      }
+    }
+
+    if (!inputHandled) {
       handleShipSelection(clickPosition);
     }
   }
 
-  const handleMouseUp = (event: MouseEvent) => {
+  const handleMouseUp = (event: MouseEvent | TouchEvent) => {
 
     if (!activeCommand()) {
       return;
@@ -331,20 +391,19 @@ function App() {
     }
   }
 
-  const handleMouseMove = (event: MouseEvent) => {
-
-    if (!activeCommand()) {
-      return;
-    }
+  const handleMouseMove = (event: MouseEvent | TouchEvent) => {
 
     if (activeCommand() === 'pan') {
       handlePanMove(event, false);
     } else if (activeCommand() === 'rotate') {
-     handleRotate(event, false);
+      handleRotate(event, false);
+    } else if (activeCommand() === 'copy') { 
+      // TODO rethink how copy should work -> holding down Ctrl doesnt work great, doesnt update canvas while command is ongoing
+
     }
   }
 
-  const handleRotate = (event: MouseEvent, shouldEndRotation: boolean) => {
+  const handleRotate = (event: MouseEvent | TouchEvent, shouldEndRotation: boolean) => {
 
     const mouseHoldStartPosition = mouseHoldStart();
     if (!mouseHoldStartPosition) {
@@ -372,7 +431,7 @@ function App() {
     }
   }
 
-  const handlePanMove = (event: MouseEvent, shouldEndPanning: boolean) => {
+  const handlePanMove = (event: MouseEvent | TouchEvent, shouldEndPanning: boolean) => {
 
     const mouseHoldStartPosition = mouseHoldStart();
     if (!mouseHoldStartPosition) {
@@ -402,6 +461,30 @@ function App() {
     }
   }
 
+  const handleKeyDown = (event: KeyboardEvent) => {
+
+    if (event.shiftKey !== shiftPressed()) {
+      setShiftPressed(event.shiftKey);
+    }
+  }
+
+  const handleKeyUp = (event: KeyboardEvent) => {
+
+    if (event.shiftKey !== shiftPressed()) {
+      setShiftPressed(event.shiftKey);
+    }
+
+    const selectedShip = getSelectedShip();
+
+    if (event.key === 'Delete' && selectedShip) {
+      setShips(
+        ships().filter(ship => ship.id !== selectedShip.id)
+      );
+
+      setSelectedShipId(null);
+    }
+  }
+
   return (
     <>
       <canvas 
@@ -410,8 +493,11 @@ function App() {
         height={CANVAS_WIDTH} 
         style={{ 'border': '1px solid black' }}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleMouseDown}
         onMouseUp={handleMouseUp}
+        onTouchEnd={handleMouseUp}
         onMouseMove={handleMouseMove}
+        onTouchMove={handleMouseMove}
       ></canvas>
     </>
   )
