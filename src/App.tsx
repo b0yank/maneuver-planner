@@ -3,6 +3,8 @@ import './App.css';
 import { ShipPosition } from './models/ship-position.model';
 import { Ship } from './models/ship.model';
 import { getAngleBetweenPoints, getDistanceBetweenPoints } from './utils/points';
+import { isPointInTriangle } from './utils/lines';
+import { Line } from './models/line.model';
 
 const CANVAS_LENGTH = 1600;
 const CANVAS_WIDTH = 800;
@@ -16,9 +18,13 @@ const IDENTITY_SHIP_WIDTH_OFFSET = IDENTITY_SHIP_WIDTH - IDENTITY_SHIP_SIDE_OFFS
 
 const ROTATE_TOOL_WIDTH = 10;
 
+const PAN_ORTHO_TRIANGLE_HALF_WIDTH = 7;
+
 const DEFAULT_LINE_WIDTH = 1;
 const DEFAULT_STROKE_STYLE = '#000000';
 const DEFAULT_FILL_STYLE = '#121212';
+
+const TOOLS_COLOR = '#234567';
 
 function App() {
   const [context, setContext] = createSignal<CanvasRenderingContext2D>();
@@ -26,11 +32,14 @@ function App() {
   const [fillColor, setFillColor] = createSignal<string>('#343434');
   const [lineWidth, setLineWidth] = createSignal<number>(1);
   const [scale, setScale] = createSignal<number>(1);
+  const [bgScale, setBgScale] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
   const [selectedShipId, setSelectedShipId] = createSignal<string | null>(null);
   const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | 'copy' | null>(null);
+  const [movementLine, setMovementLine] = createSignal<Line | null>(null);
 
   const [shiftPressed, setShiftPressed] = createSignal<boolean>(false);
+  const [ctrlPressed, setCtrlPressed] = createSignal<boolean>(false);
 
   let nextId = '8';
 
@@ -56,13 +65,13 @@ function App() {
   // ]);
 
   const [ships, setShips] = createSignal<Ship[]>([
-    { id: '1', position: { origin: new DOMPointReadOnly(0, 0), rotation: 0 } },
-    { id: '2', position: { origin: new DOMPointReadOnly(50, 50), rotation: 30 } },
-    { id: '3', position: { origin: new DOMPointReadOnly(100, 100), rotation: 45 } },
-    { id: '4', position: { origin: new DOMPointReadOnly(150, 150), rotation: 60 } },
-    { id: '5', position: { origin: new DOMPointReadOnly(200, 200), rotation: 75 } },
-    { id: '6', position: { origin: new DOMPointReadOnly(250, 250), rotation: 90 } },
-    { id: '7', position: { origin: new DOMPointReadOnly(300, 300), rotation: 180 } },
+    new Ship('1', { origin: new DOMPointReadOnly(0, 0), rotation: 0 }),
+    new Ship('2', { origin: new DOMPointReadOnly(50, 50), rotation: 30 }),
+    new Ship('3', { origin: new DOMPointReadOnly(100, 100), rotation: 45 }),
+    new Ship('4', { origin: new DOMPointReadOnly(150, 150), rotation: 60 }),
+    new Ship('5', { origin: new DOMPointReadOnly(200, 200), rotation: 75 }),
+    new Ship('6', { origin: new DOMPointReadOnly(250, 250), rotation: 90 }),
+    new Ship('7', { origin: new DOMPointReadOnly(300, 300), rotation: 180 }),
 
     // new DOMMatrix('translate(0px, 0px) rotateZ(0) scale(1, 1)'),
     // new DOMMatrix('translate(50px, 50px) rotateZ(30deg) scale(1, 1)'),
@@ -162,7 +171,7 @@ function App() {
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
   });
-
+  
   onCleanup(() => {
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
@@ -175,17 +184,69 @@ function App() {
     ctx.strokeStyle = strokeColor();
     ctx.setTransform(getShipDomMatrix(ship.position));
     
+    drawPanTool();
+    drawRotateTool();
+  }
+
+  const drawPanTool = () => {
+
+    const ctx = context()!;
+
     ctx.beginPath();
     ctx.arc(0, 0, panToolRadius(), 0, 2 * Math.PI);
-    ctx.fillStyle = '#234567';
+    ctx.fillStyle = TOOLS_COLOR;
     ctx.closePath();
     ctx.stroke();
     ctx.fill();
 
+    ctx.moveTo(panToolOuterOrthoRadius(), 0);
+    ctx.beginPath();
+    ctx.lineTo(panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH);
+    ctx.lineTo(panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH);
+    ctx.lineTo(panToolOuterOrthoRadius(), 0);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+
+    ctx.moveTo(-panToolOuterOrthoRadius(), 0);
+    ctx.beginPath();
+    ctx.lineTo(-panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH);
+    ctx.lineTo(-panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH);
+    ctx.lineTo(-panToolOuterOrthoRadius(), 0);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+
+    ctx.moveTo(0, panToolOuterOrthoRadius());
+    ctx.beginPath();
+    ctx.lineTo(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius());
+    ctx.lineTo(PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius());
+    ctx.lineTo(0, panToolOuterOrthoRadius());
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+
+    ctx.moveTo(0, -panToolOuterOrthoRadius());
+    ctx.beginPath();
+    ctx.lineTo(PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius());
+    ctx.lineTo(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius());
+    ctx.lineTo(0, -panToolOuterOrthoRadius());
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+
+    ctx.strokeStyle = strokeColor();
+    ctx.fillStyle = fillColor();
+  }
+
+  const drawRotateTool = () => {
+
+    const ctx = context()!;
+
     ctx.beginPath();
     ctx.arc(0, 0, rotateToolInnerRadius() + (rotateToolOuterRadius() - rotateToolInnerRadius()) / 2, 0, 2 * Math.PI);
     ctx.lineWidth = rotateToolOuterRadius() - rotateToolInnerRadius();
-    ctx.strokeStyle = '#234567';
+    ctx.strokeStyle = TOOLS_COLOR;
     ctx.closePath();
     ctx.stroke();
     
@@ -200,9 +261,7 @@ function App() {
     ctx.arc(0, 0, rotateToolOuterRadius(), 0, 2 * Math.PI);
     ctx.stroke();
 
-    ctx.fillStyle = fillColor();
     ctx.strokeStyle = strokeColor();
-    
   }
 
   const getShipDomMatrix = (shipPosition: ShipPosition): DOMMatrix => {
@@ -219,6 +278,14 @@ function App() {
     return scaledShipLength() * 0.2;
   }
 
+  const panToolInnerOrthoRadius = () => {
+    return panToolRadius() + 4
+  }
+
+  const panToolOuterOrthoRadius = () => {
+    return panToolRadius() + 12;
+  }
+
   const rotateToolInnerRadius = () => {
     return scaledShipLength() * 0.65;
   } 
@@ -231,12 +298,19 @@ function App() {
     return IDENTITY_SHIP_LENGTH * scale();
   }
 
-  const isPositionInShip = (position: DOMPointReadOnly, shipMatrix: DOMMatrix): boolean => {
-    const inverseMatrix = shipMatrix.inverse();
+  const isPositionInShip = (position: DOMPointReadOnly, ship: Ship): boolean => {
 
-    const DOMPointReadOnly = inverseMatrix.transformPoint(position);
+    const transformedPoint = transformPointByInverseShipMatrix(position, ship);
     
-    return isPointInIdentityShip(DOMPointReadOnly);
+    return isPointInIdentityShip(transformedPoint);
+  }
+
+  const transformPointByInverseShipMatrix = (point: DOMPointReadOnly, ship: Ship) => {
+
+    const shipMatrix = getShipDomMatrix(ship.position);
+    const inverseShipMatrix = shipMatrix.inverse();
+
+    return inverseShipMatrix.transformPoint(point);
   }
 
   const findClickedShip = (position: DOMPointReadOnly): Ship | null => {
@@ -244,7 +318,7 @@ function App() {
     for (let index = 0; index < ships().length; index++) {
       const ship = ships()[index];
       
-      if (isPositionInShip(position, getShipDomMatrix(ship.position))) {
+      if (isPositionInShip(position, ship)) {
         return ship;
       }
     }
@@ -252,14 +326,11 @@ function App() {
     return null;
   }
 
-  const copyShip = (ship: Ship): Ship => {
-    return {
-      id: getNextShipId(),
-      position: {
-        rotation: ship.position.rotation,
-        origin: DOMPointReadOnly.fromPoint(ship.position.origin)
-      }
-    }
+  const copyShip = (ship: Ship, keepId: boolean): Ship => {
+    return new Ship(
+      keepId ? ship.id : getNextShipId(), 
+      { rotation: ship.position.rotation, origin: DOMPointReadOnly.fromPoint(ship.position.origin) }
+    );
   }
 
   const isPointInIdentityShip = (point: DOMPointReadOnly): boolean => {
@@ -289,14 +360,98 @@ function App() {
     return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius();
   }
 
-  const isClickOnPan = (click: DOMPointReadOnly): boolean => {
+  const updateMovementLine = (click: DOMPointReadOnly): boolean => {
+
     const selectedShip = getSelectedShip()!;
 
-    if (selectedShip) {
-      return getDistanceBetweenPoints(selectedShip.position.origin, click) <= panToolRadius();
+    if (
+      isClickInRightPanTriangle(selectedShip, click) ||
+      isClickInLeftPanTriangle(selectedShip, click)
+    ) {
+      setMovementLine(selectedShip.getMidFrameLine()); 
+      return true;
+    }
+    
+    if (
+      isClickInTopPanTriangle(selectedShip, click) || 
+      isClickInBottomPanTriangle(selectedShip, click)
+    ) {
+      setMovementLine(selectedShip.getCenterLine());
+      return true;
+    }
+    
+    if (movementLine() !== null) {
+      setMovementLine(null);
     }
 
     return false;
+  }
+
+  const handlePan = (click: DOMPointReadOnly): boolean => {
+    const selectedShip = getSelectedShip()!;
+
+    if (selectedShip) {
+
+      const panningWithMovementLines = updateMovementLine(click);
+
+      if (panningWithMovementLines || getDistanceBetweenPoints(selectedShip.position.origin, click) <= panToolRadius()) {
+        setMouseHoldStart(click);
+
+        if (shiftPressed()) {
+          
+          const shipCopy = copyShip(getSelectedShip()!, false);
+
+          setShips(ships => [...ships, shipCopy]);
+          setSelectedShipId(shipCopy.id);
+
+        }
+      
+        setActiveCommand('pan');
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  const isClickInRightPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
+    
+    return isPointInTriangle(
+      transformPointByInverseShipMatrix(click, ship),
+      new DOMPointReadOnly(-panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH),
+      new DOMPointReadOnly(-panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH),
+      new DOMPointReadOnly(-panToolOuterOrthoRadius(), 0),
+    );
+  }
+  
+  const isClickInLeftPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
+    
+    return isPointInTriangle(
+      transformPointByInverseShipMatrix(click, ship),
+      new DOMPointReadOnly(panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH),
+      new DOMPointReadOnly(panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH),
+      new DOMPointReadOnly(panToolOuterOrthoRadius(), 0),
+    );
+  }
+
+  const isClickInTopPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
+    
+    return isPointInTriangle(
+      transformPointByInverseShipMatrix(click, ship),
+      new DOMPointReadOnly(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(0, panToolOuterOrthoRadius()),
+    );
+  }
+  
+  const isClickInBottomPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
+    
+    return isPointInTriangle(
+      transformPointByInverseShipMatrix(click, ship),
+      new DOMPointReadOnly(PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(0, -panToolOuterOrthoRadius()),
+    );
   }
 
   const isClickOnRotate = (click: DOMPointReadOnly): boolean => {
@@ -331,23 +486,14 @@ function App() {
   }
 
   const handleToolsCommand = (clickPosition: DOMPointReadOnly): boolean => {
-    if (isClickOnPan(clickPosition)) {
 
-      setMouseHoldStart(clickPosition);
+    const commandHandled = handlePan(clickPosition);
 
-      if (shiftPressed()) {
-        
-        const shipCopy = copyShip(getSelectedShip()!);
+    if (commandHandled) {
+      return true;
+    }
 
-        setShips(ships => [...ships, shipCopy]);
-        setSelectedShipId(shipCopy.id);
-
-      }
-      
-      setActiveCommand('pan');
-
-      return true
-    } else if (isClickOnRotate(clickPosition)) {
+    if (isClickOnRotate(clickPosition)) {
 
       setMouseHoldStart(clickPosition);
       setActiveCommand('rotate');
@@ -397,9 +543,6 @@ function App() {
       handlePanMove(event, false);
     } else if (activeCommand() === 'rotate') {
       handleRotate(event, false);
-    } else if (activeCommand() === 'copy') { 
-      // TODO rethink how copy should work -> holding down Ctrl doesnt work great, doesnt update canvas while command is ongoing
-
     }
   }
 
@@ -416,7 +559,7 @@ function App() {
     const rotateStartAngle = getAngleBetweenPoints(selectedShipCenterPoint, mouseHoldStartPosition);
     const rotateEndAngle = getAngleBetweenPoints(selectedShipCenterPoint, rotateEndPosition);
 
-    const modifiedShip = { ...getSelectedShip()! }
+    const modifiedShip = copyShip(getSelectedShip()!, true);
     modifiedShip.position.rotation = modifiedShip.position.rotation + rotateEndAngle - rotateStartAngle;
     setShips((currentShips) => currentShips
       .filter(s => s.id !== modifiedShip.id)
@@ -443,7 +586,7 @@ function App() {
     const dx = panEndPosition.x - mouseHoldStartPosition.x;
     const dy = panEndPosition.y - mouseHoldStartPosition.y;
 
-    const modifiedShip = { ...getSelectedShip()! }
+    const modifiedShip = copyShip(getSelectedShip()!, true);
     modifiedShip.position.origin = new DOMPointReadOnly(
       modifiedShip.position.origin.x + dx, 
       modifiedShip.position.origin.y + dy 
@@ -466,10 +609,14 @@ function App() {
     if (event.shiftKey !== shiftPressed()) {
       setShiftPressed(event.shiftKey);
     }
+
+    if (event.ctrlKey !== ctrlPressed()) {
+      setCtrlPressed(event.ctrlKey);
+    }
   }
-
+  
   const handleKeyUp = (event: KeyboardEvent) => {
-
+    
     if (event.shiftKey !== shiftPressed()) {
       setShiftPressed(event.shiftKey);
     }
@@ -487,18 +634,20 @@ function App() {
 
   return (
     <>
-      <canvas 
-        id='canvas' 
-        width={CANVAS_LENGTH} 
-        height={CANVAS_WIDTH} 
-        style={{ 'border': '1px solid black' }}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onTouchEnd={handleMouseUp}
-        onMouseMove={handleMouseMove}
-        onTouchMove={handleMouseMove}
-      ></canvas>
+      <div class='canvas-container'>
+        <canvas 
+          id='canvas' 
+          width={CANVAS_LENGTH} 
+          height={CANVAS_WIDTH} 
+          style={{ 'border': '1px solid black' }}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onTouchEnd={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          onTouchMove={handleMouseMove}
+        ></canvas>
+      </div>
     </>
   )
 }
