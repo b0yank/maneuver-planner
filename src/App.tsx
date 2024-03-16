@@ -2,8 +2,8 @@ import { createEffect, createSignal, onCleanup } from 'solid-js';
 import './App.css';
 import { ShipPosition } from './models/ship-position.model';
 import { Ship } from './models/ship.model';
-import { getAngleBetweenPoints, getDistanceBetweenPoints } from './utils/points';
-import { isPointInTriangle } from './utils/lines';
+import { getAngleBetweenPoints, getDistanceBetweenPoints, getRotatedPoint } from './utils/points';
+import { getClosestPointToLine, isPointInTriangle } from './utils/lines';
 import { Line } from './models/line.model';
 
 const CANVAS_LENGTH = 1600;
@@ -270,6 +270,20 @@ function App() {
     );
   }
 
+  const getShipCenterLine = (ship: Ship) => {
+    const bowPointInitial = new DOMPointReadOnly(ship.position.origin.x, ship.position.origin.y + scaledShipLength() / 2);
+
+    const bowPoint = getRotatedPoint(bowPointInitial, ship.position.origin, ship.position.rotation);
+    return new Line(ship.position.origin, bowPoint);
+  }
+
+  const getShipMidshipLine = (ship: Ship) => {
+    const portsidePointInitial = new DOMPointReadOnly(ship.position.origin.x + scaledShipWidth(), ship.position.origin.y);
+
+    const portsidePoint = getRotatedPoint(portsidePointInitial, ship.position.origin, ship.position.rotation);
+    return new Line(ship.position.origin, portsidePoint);
+  }
+
   const getSelectedShip = (): Ship | null => {
     return ships().find(s => s.id === selectedShipId()) || null;
   }
@@ -296,6 +310,10 @@ function App() {
 
   const scaledShipLength = (): number => {
     return IDENTITY_SHIP_LENGTH * scale();
+  }
+
+  const scaledShipWidth = (): number => {
+    return IDENTITY_SHIP_WIDTH * scale();
   }
 
   const isPositionInShip = (position: DOMPointReadOnly, ship: Ship): boolean => {
@@ -368,7 +386,8 @@ function App() {
       isClickInRightPanTriangle(selectedShip, click) ||
       isClickInLeftPanTriangle(selectedShip, click)
     ) {
-      setMovementLine(selectedShip.getMidFrameLine()); 
+      setMovementLine(getShipMidshipLine(selectedShip));
+       
       return true;
     }
     
@@ -376,7 +395,8 @@ function App() {
       isClickInTopPanTriangle(selectedShip, click) || 
       isClickInBottomPanTriangle(selectedShip, click)
     ) {
-      setMovementLine(selectedShip.getCenterLine());
+      setMovementLine(getShipCenterLine(selectedShip));
+      
       return true;
     }
     
@@ -587,10 +607,18 @@ function App() {
     const dy = panEndPosition.y - mouseHoldStartPosition.y;
 
     const modifiedShip = copyShip(getSelectedShip()!, true);
-    modifiedShip.position.origin = new DOMPointReadOnly(
+    
+    let newShipOrigin = new DOMPointReadOnly(
       modifiedShip.position.origin.x + dx, 
       modifiedShip.position.origin.y + dy 
     );
+
+    const currentMovementLine = movementLine();
+    if (currentMovementLine) {
+      newShipOrigin = getClosestPointToLine(currentMovementLine, newShipOrigin);
+    }
+
+    modifiedShip.position.origin = newShipOrigin;
 
     setShips((currentShips) => currentShips
       .filter(s => s.id !== modifiedShip.id)

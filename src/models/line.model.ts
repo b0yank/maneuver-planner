@@ -8,14 +8,6 @@ export class Line {
     this._pointB = new DOMPointReadOnly(pointB.x, pointB.y);
   }
 
-  get pointA() {
-    return this._pointA
-  }
-
-  get pointB() {
-    return this._pointB
-  }
-
   get isVertical() {
     return this._pointA.x === this._pointB.x;
   }
@@ -24,23 +16,38 @@ export class Line {
     return this._pointA.y === this._pointB.y;
   }
 
-  get equation(): Line.Equation {
-    
+  get slope() {
     // m = (y2 - y1) / (x2 - x1)
     const xDiff = this._pointB!.x - this._pointA.x;
 
-    const slope = xDiff !== 0 ? (this._pointB!.y - this._pointA.y) / xDiff : Number.NaN;
+    return xDiff !== 0 ? (this._pointB!.y - this._pointA.y) / xDiff : Number.NaN;
+  }
+
+  get yIntercept() {
+    
+    const slope = this.slope;
+
+    if (isNaN(slope)) {
+      return Number.NaN;
+    }
 
     // b = y - m * x
-    const intercept = isNaN(slope) ? Number.NaN : this._pointA.y - this._pointA.x * slope;
-
-    return { slope, intercept };
+    return this._pointA.y - this._pointA.x * slope;
   }
-}
 
-export namespace Line {
-  export interface Equation {
-    slope: number;
-    intercept: number;
+  get xIntercept() {
+
+    const slope = this.slope;
+
+    if (isNaN(slope)) { 
+      return this._pointA.x;
+    }
+
+    if (slope === 0) {
+      return Number.NaN;
+    }
+
+    // x = -b / m
+    return -this.yIntercept / slope;
   }
 }

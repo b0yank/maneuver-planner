@@ -12,24 +12,24 @@ export const isPointInTriangle = (point: DOMPointReadOnly, vertixA: DOMPointRead
   return !(hasNegative && hasPositive);
 }
 
-export const getClosestPointToLine = (line: Line, initialPoint: DOMPointReadOnly) => { // TODO Needs to work with infinite-length lines
+export const getClosestPointToLine = (line: Line, initialPoint: DOMPointReadOnly) => {
 
+  const { slope: lineSlope, xIntercept: lineXIntercept, yIntercept: lineYIntercept } = line;
+  
   if (line.isVertical) {
-    return new DOMPointReadOnly(line.pointA.x, initialPoint.y);
+    return new DOMPointReadOnly(lineXIntercept, initialPoint.y);
   }
 
   if (line.isHorizontal) {
-    return new DOMPointReadOnly(initialPoint.x, line.pointA.y);
+    return new DOMPointReadOnly(initialPoint.x, lineYIntercept);
   }
-
-  const { slope, intercept: lineIntercept } = line.equation;
 
   // mp = - 1 / m (slope of perpendicular)
   // bp = yp - mp * xp = yp + (xp / m)
-  const perpendicularIntercept = initialPoint.y + initialPoint.x / slope;
+  const perpendicularIntercept = initialPoint.y + initialPoint.x / lineSlope;
 
-  const intersectX = slope * (perpendicularIntercept - lineIntercept) / (slope ** 2 + 1);
-  const intersectY = intersectX * slope + lineIntercept;
+  const intersectX = lineSlope * (perpendicularIntercept - lineYIntercept) / (lineSlope ** 2 + 1);
+  const intersectY = intersectX * lineSlope + lineYIntercept;
 
   return new DOMPointReadOnly(intersectX, intersectY);
 }

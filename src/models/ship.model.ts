@@ -1,4 +1,4 @@
-import { Line } from "./line.model";
+// import { Line } from "./line.model";
 
 export class Ship {
 
@@ -13,13 +13,15 @@ export class Ship {
     return this._position;
   }
 
-  getCenterLine(): Line {
+  // getCenterLine(): Line {
+  //   const point = new DOMPointReadOnly(this.position.origin.x, this.position.origin.y);
 
-  }
-
-  getMidFrameLine(): Line {
     
-  }
+  // }
+
+  // getMidFrameLine(): Line {
+    
+  // }
 }
 
 export namespace Ship {
