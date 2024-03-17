@@ -5,6 +5,7 @@ import { Ship } from './models/ship.model';
 import { getAngleBetweenPoints, getDistanceBetweenPoints, getRotatedPoint } from './utils/points';
 import { getClosestPointToLine, isPointInTriangle } from './utils/lines';
 import { Line } from './models/line.model';
+import { NumberInput } from './components/NumberInput/NumberInput';
 
 const CANVAS_LENGTH = 1600;
 const CANVAS_WIDTH = 800;
@@ -32,11 +33,11 @@ function App() {
   const [fillColor, setFillColor] = createSignal<string>('#343434');
   const [lineWidth, setLineWidth] = createSignal<number>(1);
   const [scale, setScale] = createSignal<number>(1);
-  const [bgScale, setBgScale] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
   const [selectedShipId, setSelectedShipId] = createSignal<string | null>(null);
   const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | 'copy' | null>(null);
   const [movementLine, setMovementLine] = createSignal<Line | null>(null);
+  const [pos, setPos] = createSignal<DOMPoint | null>(null);
 
   const [shiftPressed, setShiftPressed] = createSignal<boolean>(false);
   const [ctrlPressed, setCtrlPressed] = createSignal<boolean>(false);
@@ -289,11 +290,11 @@ function App() {
   }
 
   const panToolRadius = () => {
-    return scaledShipLength() * 0.2;
+    return IDENTITY_SHIP_LENGTH * 0.2;
   }
 
   const panToolInnerOrthoRadius = () => {
-    return panToolRadius() + 4
+    return panToolRadius() + 4;
   }
 
   const panToolOuterOrthoRadius = () => {
@@ -301,11 +302,11 @@ function App() {
   }
 
   const rotateToolInnerRadius = () => {
-    return scaledShipLength() * 0.65;
+    return IDENTITY_SHIP_LENGTH * 0.65;
   } 
 
   const rotateToolOuterRadius = () => {
-    return rotateToolInnerRadius() + (ROTATE_TOOL_WIDTH * scale());
+    return rotateToolInnerRadius() + (ROTATE_TOOL_WIDTH);
   }
 
   const scaledShipLength = (): number => {
@@ -375,7 +376,7 @@ function App() {
   const isClickInTools = (ship: Ship, click: DOMPointReadOnly) => {
 
     const shipCenter = ship.position.origin;
-    return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius();
+    return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius() * scale();
   }
 
   const updateMovementLine = (click: DOMPointReadOnly): boolean => {
@@ -480,8 +481,8 @@ function App() {
     if (selectedShip) {
       const distanceToCenter = getDistanceBetweenPoints(selectedShip.position.origin, click);
       
-      return distanceToCenter >= rotateToolInnerRadius()
-          && distanceToCenter <= rotateToolOuterRadius();
+      return distanceToCenter >= (rotateToolInnerRadius() * scale())
+          && distanceToCenter <= (rotateToolOuterRadius() * scale());
     }
 
     return false;
@@ -495,13 +496,13 @@ function App() {
 
   const getMouseEventPosition = (event: MouseEvent | TouchEvent) => {
     const canvas = document.getElementById('canvas')!;
-
+    
     const clientX = event instanceof MouseEvent ? event.clientX : event.touches.item(0)!.clientX;
     const clientY = event instanceof MouseEvent ? event.clientY : event.touches.item(0)!.clientY;
     
     const canvasX = clientX - canvas.offsetLeft;
     const canvasY = clientY - canvas.offsetTop;
-    
+
     return new DOMPointReadOnly(canvasX, canvasY);
   }
 
@@ -518,8 +519,8 @@ function App() {
       setMouseHoldStart(clickPosition);
       setActiveCommand('rotate');
 
-      const selectedShip = getSelectedShip()!;
-      getAngleBetweenPoints(selectedShip.position.origin, clickPosition);
+      // const selectedShip = getSelectedShip()!;
+      // getAngleBetweenPoints(selectedShip.position.origin, clickPosition);
       return true
     }
 
@@ -529,14 +530,11 @@ function App() {
   const handleMouseDown = (event: MouseEvent | TouchEvent) => {
     
     const clickPosition = getMouseEventPosition(event);
-
+    
     let inputHandled = false;
-    if (!!selectedShipId()) {
-      if (activeCommand() === 'copy') {
-        
-      } else if (isClickInTools(getSelectedShip()!, clickPosition)) {
-        inputHandled = handleToolsCommand(clickPosition);
-      }
+    debugger
+    if (!!selectedShipId() && isClickInTools(getSelectedShip()!, clickPosition)) { 
+      inputHandled = handleToolsCommand(clickPosition);
     }
 
     if (!inputHandled) {
@@ -558,7 +556,7 @@ function App() {
   }
 
   const handleMouseMove = (event: MouseEvent | TouchEvent) => {
-
+    setPos(getMouseEventPosition(event))
     if (activeCommand() === 'pan') {
       handlePanMove(event, false);
     } else if (activeCommand() === 'rotate') {
@@ -662,20 +660,23 @@ function App() {
 
   return (
     <>
-      <div class='canvas-container'>
-        <canvas 
-          id='canvas' 
-          width={CANVAS_LENGTH} 
-          height={CANVAS_WIDTH} 
-          style={{ 'border': '1px solid black' }}
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onTouchEnd={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          onTouchMove={handleMouseMove}
-        ></canvas>
-      </div>
+    <canvas // TODO: visually, tools dont need to scale with ship, just apply ship matrix before visualizing, but clicked point probably needs to have the matrix applied
+      id='canvas' 
+      width={CANVAS_LENGTH} 
+      height={CANVAS_WIDTH} 
+      class='canvas'
+      style={{ 'border': '1px solid black' }}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onTouchEnd={handleMouseUp}
+      onMouseMove={handleMouseMove}
+      onTouchMove={handleMouseMove}
+    ></canvas>
+    <div class="menu-container"> 
+      <NumberInput value={scale()} setValue={setScale} min={0.25} max={3.0} step={0.25} />
+      <div>{pos()?.x}, {pos()?.y}</div>
+    </div>
     </>
   )
 }

@@ -1,5 +1,6 @@
 #root {
   margin: 0 auto;
+  position: relative;
   padding: 2rem;
   text-align: center;
 }
@@ -23,4 +24,14 @@
 
 .read-the-docs {
   color: #888;
+}
+
+.canvas {
+  margin: 3rem;
+}
+
+.menu-container {
+  position: absolute;
+  right: 6rem;
+  top: 6rem;
 }
