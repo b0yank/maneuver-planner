@@ -30,7 +30,7 @@ const TOOLS_COLOR = '#234567';
 function App() {
   const [context, setContext] = createSignal<CanvasRenderingContext2D>();
   const [strokeColor, setStrokeColor] = createSignal<string>('black');
-  const [fillColor, setFillColor] = createSignal<string>('#343434');
+  const [fillColor, setFillColor] = createSignal<string>('#327c84');
   const [lineWidth, setLineWidth] = createSignal<number>(1);
   const [scale, setScale] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
@@ -83,6 +83,10 @@ function App() {
   ])
 
   const createShip = (): Path2D => { 
+
+    const ctx = context()!;
+    ctx.beginPath();
+
     const shipPath = new Path2D();
 
     const halfWidth = IDENTITY_SHIP_WIDTH / 2;
@@ -95,6 +99,8 @@ function App() {
     shipPath.lineTo((-halfWidth) + IDENTITY_SHIP_SIDE_OFFSET, (-halfLength) + IDENTITY_SHIP_LENGTH);
     shipPath.lineTo((-halfWidth) + 0, (-halfLength) + IDENTITY_SHIP_LENGTH_OFFSET);
     shipPath.lineTo((-halfWidth) + 0, (-halfLength) + 0);
+
+    ctx.closePath();
 
     return shipPath;
   }
@@ -122,7 +128,12 @@ function App() {
     const ctx = context()!;
     ctx.strokeStyle = strokeColor();
     ctx.setTransform(getShipDomMatrix(ship.position));
-    ctx.stroke(createShip());
+    
+    const shipPath = createShip();
+
+    ctx.fillStyle = fillColor();
+    ctx.fill(shipPath);
+    ctx.stroke(shipPath);
 
     if (selectedShipId() === ship.id) {
       drawShipTools(ship);
@@ -532,7 +543,6 @@ function App() {
     const clickPosition = getMouseEventPosition(event);
     
     let inputHandled = false;
-    debugger
     if (!!selectedShipId() && isClickInTools(getSelectedShip()!, clickPosition)) { 
       inputHandled = handleToolsCommand(clickPosition);
     }
