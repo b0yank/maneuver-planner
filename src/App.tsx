@@ -6,11 +6,12 @@ import { getAngleBetweenPoints, getDistanceBetweenPoints, getRotatedPoint } from
 import { getClosestPointToLine, isPointInTriangle } from './utils/lines';
 import { Line } from './models/line.model';
 import { NumberInput } from './components/NumberInput/NumberInput';
+import { BgImageInput } from './components/BgImageInput/BgImageInput';
 
 const CANVAS_LENGTH = 1600;
 const CANVAS_WIDTH = 800;
 
-const IDENTITY_SHIP_LENGTH = 88;
+const IDENTITY_SHIP_LENGTH = 120;
 const IDENTITY_SHIP_WIDTH = 25;
 const IDENTITY_SHIP_SIDE_OFFSET = 8;
 
@@ -29,6 +30,7 @@ const TOOLS_COLOR = '#234567';
 
 function App() {
   const [context, setContext] = createSignal<CanvasRenderingContext2D>();
+  const [bgImage, setBgImage] = createSignal<{ url: string, width: number, height: number } | null>(null);
   const [strokeColor, setStrokeColor] = createSignal<string>('black');
   const [fillColor, setFillColor] = createSignal<string>('#327c84');
   const [lineWidth, setLineWidth] = createSignal<number>(1);
@@ -43,6 +45,7 @@ function App() {
   const [ctrlPressed, setCtrlPressed] = createSignal<boolean>(false);
 
   let nextId = '8';
+  let canvasObserver: MutationObserver;
 
   // const [scale, setScale] = createSignal<Matrix3x3>(Matrix3x3.eye);
 
@@ -172,13 +175,10 @@ function App() {
     const context = canvas.getContext('2d')!;
     setContext(context);
 
-    context.clearRect(0, 0, CANVAS_LENGTH, CANVAS_WIDTH);
-    context.lineWidth = DEFAULT_LINE_WIDTH;
-    context.strokeStyle = DEFAULT_STROKE_STYLE;
-    context.fillStyle = DEFAULT_FILL_STYLE;
-
-    ships().forEach(drawShip);
-    context.resetTransform();
+    drawAllShips();
+    
+    canvasObserver = new MutationObserver(drawAllShips);
+    canvasObserver.observe(canvas, { attributeFilter: ['width', 'height'] });
 
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
@@ -187,7 +187,21 @@ function App() {
   onCleanup(() => {
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
+    canvasObserver.disconnect();
   });
+
+  const drawAllShips = () => {
+
+    const ctx = context()!;
+
+    ctx.clearRect(0, 0, CANVAS_LENGTH, CANVAS_WIDTH);
+    ctx.lineWidth = DEFAULT_LINE_WIDTH;
+    ctx.strokeStyle = DEFAULT_STROKE_STYLE;
+    ctx.fillStyle = DEFAULT_FILL_STYLE;
+
+    ships().forEach(drawShip);
+    ctx.resetTransform();
+  }
 
   const drawShipTools = (ship: Ship): void => {
 
@@ -507,12 +521,15 @@ function App() {
 
   const getMouseEventPosition = (event: MouseEvent | TouchEvent) => {
     const canvas = document.getElementById('canvas')!;
+
+    const canvasOffsetTop = canvas.getBoundingClientRect().top + document.documentElement.scrollTop;
+    const canvasOffsetLeft = canvas.getBoundingClientRect().left + document.documentElement.scrollLeft;
     
-    const clientX = event instanceof MouseEvent ? event.clientX : event.touches.item(0)!.clientX;
-    const clientY = event instanceof MouseEvent ? event.clientY : event.touches.item(0)!.clientY;
+    const mousePageX = event instanceof MouseEvent ? event.pageX : event.touches.item(0)!.pageX;
+    const mousePageY = event instanceof MouseEvent ? event.pageY : event.touches.item(0)!.pageY;
     
-    const canvasX = clientX - canvas.offsetLeft;
-    const canvasY = clientY - canvas.offsetTop;
+    const canvasX = mousePageX - canvasOffsetLeft;
+    const canvasY = mousePageY - canvasOffsetTop;
 
     return new DOMPointReadOnly(canvasX, canvasY);
   }
@@ -668,14 +685,16 @@ function App() {
     }
   }
 
+  const log = (event: any) => console.log(event); 
+
   return (
     <>
-    <canvas // TODO: visually, tools dont need to scale with ship, just apply ship matrix before visualizing, but clicked point probably needs to have the matrix applied
+    <canvas
       id='canvas' 
-      width={CANVAS_LENGTH} 
-      height={CANVAS_WIDTH} 
+      width={bgImage() ? bgImage()!.width : CANVAS_LENGTH} 
+      height={bgImage() ? bgImage()!.height : CANVAS_WIDTH} 
       class='canvas'
-      style={{ 'border': '1px solid black' }}
+      style={{ 'background-image': bgImage() ? `url(${bgImage()!.url})` : 'none' }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -685,6 +704,8 @@ function App() {
     ></canvas>
     <div class="menu-container"> 
       <NumberInput value={scale()} setValue={setScale} min={0.25} max={3.0} step={0.25} />
+      <input type='color' value={fillColor()} onChange={(e) => setFillColor(e.target.value)} />
+      <BgImageInput value={bgImage()} setValue={setBgImage} />
       <div>{pos()?.x}, {pos()?.y}</div>
     </div>
     </>
