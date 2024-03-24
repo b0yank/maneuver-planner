@@ -11,9 +11,9 @@ import { BgImageInput } from './components/BgImageInput/BgImageInput';
 const CANVAS_LENGTH = 1600;
 const CANVAS_WIDTH = 800;
 
-const IDENTITY_SHIP_LENGTH = 120;
-const IDENTITY_SHIP_WIDTH = 25;
-const IDENTITY_SHIP_SIDE_OFFSET = 8;
+const IDENTITY_SHIP_LENGTH = 311;
+const IDENTITY_SHIP_WIDTH = 38;
+const IDENTITY_SHIP_SIDE_OFFSET = 11;
 
 const IDENTITY_SHIP_LENGTH_OFFSET = IDENTITY_SHIP_LENGTH - IDENTITY_SHIP_SIDE_OFFSET;
 const IDENTITY_SHIP_WIDTH_OFFSET = IDENTITY_SHIP_WIDTH - IDENTITY_SHIP_SIDE_OFFSET;
@@ -30,9 +30,13 @@ const TOOLS_COLOR = '#234567';
 
 function App() {
   const [context, setContext] = createSignal<CanvasRenderingContext2D>();
+
+  const [identityShipLength, setIdentityShipLength] = createSignal<number>(311);
+  const [identityShipWidth, setIdentityShipWidth] = createSignal<number>(38);
+
   const [bgImage, setBgImage] = createSignal<{ url: string, width: number, height: number } | null>(null);
   const [strokeColor, setStrokeColor] = createSignal<string>('black');
-  const [fillColor, setFillColor] = createSignal<string>('#327c84');
+  const [shipStrokeColor, setShipStrokeColor] = createSignal<string>('#020595');
   const [lineWidth, setLineWidth] = createSignal<number>(1);
   const [scale, setScale] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
@@ -85,6 +89,23 @@ function App() {
     // new DOMMatrix('translate(250px, 250px) rotateZ(90deg) scale(0.8, 0.8)'),
   ])
 
+  const identityShipSideOffset = () => identityShipWidth() * 0.3;
+  const identityShipLengthOffset = () => identityShipLength() - identityShipSideOffset();
+  const identityShipWidthOffset = () => identityShipWidth() - identityShipSideOffset();
+  
+  const panOrthoTriangleHalfWidth = () => Math.min(Math.max(identityShipWidth() * 0.3, 8), 20);
+  const panToolRadius = () => identityShipLength() * 0.35;
+  const panToolInnerOrthoRadius = () => panToolRadius() + panOrthoTriangleHalfWidth() * 0.1; // TODO: fix as scaling ship length leaves a wider gap b/n pan & rotate
+  const panToolOuterOrthoRadius = () => panToolInnerOrthoRadius() + panOrthoTriangleHalfWidth() * 2.2;
+
+  const rotateToolInnerRadius = () => panToolOuterOrthoRadius();
+  const rotateToolOuterRadius = () => rotateToolInnerRadius() + rotateToolWidth();
+
+  const scaledShipLength = () => identityShipLength() * scale();
+  const scaledShipWidth = () => identityShipWidth() * scale();
+
+  const rotateToolWidth = () => identityShipLength() * 0.15;
+
   const createShip = (): Path2D => { 
 
     const ctx = context()!;
@@ -92,15 +113,15 @@ function App() {
 
     const shipPath = new Path2D();
 
-    const halfWidth = IDENTITY_SHIP_WIDTH / 2;
-    const halfLength = IDENTITY_SHIP_LENGTH / 2;
+    const halfWidth = identityShipWidth() / 2;
+    const halfLength = identityShipLength() / 2;
 
     shipPath.moveTo((-halfWidth) + 0, (-halfLength) + 0);
-    shipPath.lineTo((-halfWidth) + IDENTITY_SHIP_WIDTH, (-halfLength) + 0);
-    shipPath.lineTo((-halfWidth) + IDENTITY_SHIP_WIDTH, (-halfLength) + IDENTITY_SHIP_LENGTH_OFFSET);
-    shipPath.lineTo((-halfWidth) + IDENTITY_SHIP_WIDTH_OFFSET, (-halfLength) + IDENTITY_SHIP_LENGTH);
-    shipPath.lineTo((-halfWidth) + IDENTITY_SHIP_SIDE_OFFSET, (-halfLength) + IDENTITY_SHIP_LENGTH);
-    shipPath.lineTo((-halfWidth) + 0, (-halfLength) + IDENTITY_SHIP_LENGTH_OFFSET);
+    shipPath.lineTo((-halfWidth) + identityShipWidth(), (-halfLength) + 0);
+    shipPath.lineTo((-halfWidth) + identityShipWidth(), (-halfLength) + identityShipLengthOffset());
+    shipPath.lineTo((-halfWidth) + identityShipWidthOffset(), (-halfLength) + identityShipLength());
+    shipPath.lineTo((-halfWidth) + identityShipSideOffset(), (-halfLength) + identityShipLength());
+    shipPath.lineTo((-halfWidth) + 0, (-halfLength) + identityShipLengthOffset());
     shipPath.lineTo((-halfWidth) + 0, (-halfLength) + 0);
 
     ctx.closePath();
@@ -134,8 +155,9 @@ function App() {
     
     const shipPath = createShip();
 
-    ctx.fillStyle = fillColor();
-    ctx.fill(shipPath);
+    ctx.fillStyle = shipStrokeColor();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = shipStrokeColor();
     ctx.stroke(shipPath);
 
     if (selectedShipId() === ship.id) {
@@ -201,34 +223,46 @@ function App() {
 
     ships().forEach(drawShip);
     ctx.resetTransform();
+
+    const selectedShip = getSelectedShip();
+    if (selectedShip) {
+      drawShipCourse();
+    }
   }
 
   const drawShipTools = (ship: Ship): void => {
 
     const ctx = context()!;
 
-    ctx.strokeStyle = strokeColor();
+    ctx.lineWidth = lineWidth();
+    
     ctx.setTransform(getShipDomMatrix(ship.position));
     
+    ctx.fillStyle = shipStrokeColor() + '1A'; // adding 1A for transparency of HEX color
     drawPanTool();
+    
+    ctx.strokeStyle = shipStrokeColor() + '1A'; // adding 1A for transparency of HEX color
     drawRotateTool();
+
+    ctx.strokeStyle = strokeColor();
+    ctx.fillStyle = shipStrokeColor();
   }
 
   const drawPanTool = () => {
 
     const ctx = context()!;
+    ctx.strokeStyle = 'black';
 
     ctx.beginPath();
     ctx.arc(0, 0, panToolRadius(), 0, 2 * Math.PI);
-    ctx.fillStyle = TOOLS_COLOR;
     ctx.closePath();
     ctx.stroke();
     ctx.fill();
 
     ctx.moveTo(panToolOuterOrthoRadius(), 0);
     ctx.beginPath();
-    ctx.lineTo(panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH);
-    ctx.lineTo(panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH);
+    ctx.lineTo(panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth());
+    ctx.lineTo(panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth());
     ctx.lineTo(panToolOuterOrthoRadius(), 0);
     ctx.closePath();
     ctx.stroke();
@@ -236,8 +270,8 @@ function App() {
 
     ctx.moveTo(-panToolOuterOrthoRadius(), 0);
     ctx.beginPath();
-    ctx.lineTo(-panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH);
-    ctx.lineTo(-panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH);
+    ctx.lineTo(-panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth());
+    ctx.lineTo(-panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth());
     ctx.lineTo(-panToolOuterOrthoRadius(), 0);
     ctx.closePath();
     ctx.stroke();
@@ -245,8 +279,8 @@ function App() {
 
     ctx.moveTo(0, panToolOuterOrthoRadius());
     ctx.beginPath();
-    ctx.lineTo(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius());
-    ctx.lineTo(PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius());
+    ctx.lineTo(-panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius());
+    ctx.lineTo(panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius());
     ctx.lineTo(0, panToolOuterOrthoRadius());
     ctx.closePath();
     ctx.stroke();
@@ -254,25 +288,23 @@ function App() {
 
     ctx.moveTo(0, -panToolOuterOrthoRadius());
     ctx.beginPath();
-    ctx.lineTo(PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius());
-    ctx.lineTo(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius());
+    ctx.lineTo(panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius());
+    ctx.lineTo(-panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius());
     ctx.lineTo(0, -panToolOuterOrthoRadius());
     ctx.closePath();
     ctx.stroke();
     ctx.fill();
-
-    ctx.strokeStyle = strokeColor();
-    ctx.fillStyle = fillColor();
   }
 
   const drawRotateTool = () => {
 
     const ctx = context()!;
 
+    ctx.strokeStyle = shipStrokeColor() + '1A'; // adding 1A for transparency of HEX color
+
     ctx.beginPath();
     ctx.arc(0, 0, rotateToolInnerRadius() + (rotateToolOuterRadius() - rotateToolInnerRadius()) / 2, 0, 2 * Math.PI);
     ctx.lineWidth = rotateToolOuterRadius() - rotateToolInnerRadius();
-    ctx.strokeStyle = TOOLS_COLOR;
     ctx.closePath();
     ctx.stroke();
     
@@ -286,8 +318,25 @@ function App() {
     ctx.beginPath();
     ctx.arc(0, 0, rotateToolOuterRadius(), 0, 2 * Math.PI);
     ctx.stroke();
+  }
 
-    ctx.strokeStyle = strokeColor();
+  const drawShipCourse = () => {
+
+    const ctx = context()!;
+    ctx.font = "48px serif";
+
+    const initialFillStyle = ctx.fillStyle;
+    ctx.fillStyle = 'black';
+
+    const selectedShip = getSelectedShip()!;
+
+    ctx.fillText(
+      `00${canvasDegreesToShipCourseDegrees(selectedShip.position.rotation).toFixed(1)}°`.slice(-6), 
+      selectedShip.position.origin.x + 35, 
+      selectedShip.position.origin.y - rotateToolOuterRadius() 
+    );
+
+    ctx.fillStyle = initialFillStyle;
   }
 
   const getShipDomMatrix = (shipPosition: ShipPosition): DOMMatrix => {
@@ -314,33 +363,7 @@ function App() {
     return ships().find(s => s.id === selectedShipId()) || null;
   }
 
-  const panToolRadius = () => {
-    return IDENTITY_SHIP_LENGTH * 0.2;
-  }
-
-  const panToolInnerOrthoRadius = () => {
-    return panToolRadius() + 4;
-  }
-
-  const panToolOuterOrthoRadius = () => {
-    return panToolRadius() + 12;
-  }
-
-  const rotateToolInnerRadius = () => {
-    return IDENTITY_SHIP_LENGTH * 0.65;
-  } 
-
-  const rotateToolOuterRadius = () => {
-    return rotateToolInnerRadius() + (ROTATE_TOOL_WIDTH);
-  }
-
-  const scaledShipLength = (): number => {
-    return IDENTITY_SHIP_LENGTH * scale();
-  }
-
-  const scaledShipWidth = (): number => {
-    return IDENTITY_SHIP_WIDTH * scale();
-  }
+  const canvasDegreesToShipCourseDegrees = (canvasDegrees: number) => (canvasDegrees + 180) % 360
 
   const isPositionInShip = (position: DOMPointReadOnly, ship: Ship): boolean => {
 
@@ -379,19 +402,19 @@ function App() {
 
   const isPointInIdentityShip = (point: DOMPointReadOnly): boolean => {
     // point is adjusted to compensate for the fact that the ship origin is in the center of the ship, instead of an endpoint
-    const adjustedPoint = new DOMPointReadOnly(point.x + IDENTITY_SHIP_WIDTH / 2, point.y + IDENTITY_SHIP_LENGTH / 2);
+    const adjustedPoint = new DOMPointReadOnly(point.x + identityShipWidth() / 2, point.y + identityShipLength() / 2);
 
-    const isWithinXBounds = adjustedPoint.x >= 0 && adjustedPoint.x <= IDENTITY_SHIP_WIDTH;
-    const isWithinYBounds = adjustedPoint.y >= 0 && adjustedPoint.y <= IDENTITY_SHIP_LENGTH;
+    const isWithinXBounds = adjustedPoint.x >= 0 && adjustedPoint.x <= identityShipWidth();
+    const isWithinYBounds = adjustedPoint.y >= 0 && adjustedPoint.y <= identityShipLength();
 
     if (isWithinXBounds && isWithinYBounds) {
-      if (adjustedPoint.y <= IDENTITY_SHIP_LENGTH_OFFSET) {
+      if (adjustedPoint.y <= identityShipLengthOffset()) {
         return true;
       }
   
-      if (adjustedPoint.y <= IDENTITY_SHIP_LENGTH) {
-        return (adjustedPoint.x <= IDENTITY_SHIP_WIDTH_OFFSET && adjustedPoint.x >= (adjustedPoint.y - IDENTITY_SHIP_LENGTH_OFFSET)) 
-            || (adjustedPoint.x > IDENTITY_SHIP_WIDTH_OFFSET && adjustedPoint.x + (adjustedPoint.y - IDENTITY_SHIP_LENGTH_OFFSET) <= IDENTITY_SHIP_WIDTH);
+      if (adjustedPoint.y <= identityShipLength()) {
+        return (adjustedPoint.x <= identityShipWidthOffset() && adjustedPoint.x >= (adjustedPoint.y - identityShipLengthOffset())) 
+            || (adjustedPoint.x > identityShipWidthOffset() && adjustedPoint.x + (adjustedPoint.y - identityShipLengthOffset()) <= identityShipWidth());
       }
     }
 
@@ -464,8 +487,8 @@ function App() {
     
     return isPointInTriangle(
       transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(-panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH),
-      new DOMPointReadOnly(-panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH),
+      new DOMPointReadOnly(-panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth()),
+      new DOMPointReadOnly(-panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth()),
       new DOMPointReadOnly(-panToolOuterOrthoRadius(), 0),
     );
   }
@@ -474,8 +497,8 @@ function App() {
     
     return isPointInTriangle(
       transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(panToolInnerOrthoRadius(), -PAN_ORTHO_TRIANGLE_HALF_WIDTH),
-      new DOMPointReadOnly(panToolInnerOrthoRadius(), PAN_ORTHO_TRIANGLE_HALF_WIDTH),
+      new DOMPointReadOnly(panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth()),
+      new DOMPointReadOnly(panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth()),
       new DOMPointReadOnly(panToolOuterOrthoRadius(), 0),
     );
   }
@@ -484,8 +507,8 @@ function App() {
     
     return isPointInTriangle(
       transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius()),
-      new DOMPointReadOnly(PAN_ORTHO_TRIANGLE_HALF_WIDTH, panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(-panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius()),
       new DOMPointReadOnly(0, panToolOuterOrthoRadius()),
     );
   }
@@ -494,8 +517,8 @@ function App() {
     
     return isPointInTriangle(
       transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius()),
-      new DOMPointReadOnly(-PAN_ORTHO_TRIANGLE_HALF_WIDTH, -panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius()),
+      new DOMPointReadOnly(-panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius()),
       new DOMPointReadOnly(0, -panToolOuterOrthoRadius()),
     );
   }
@@ -703,10 +726,16 @@ function App() {
       onTouchMove={handleMouseMove}
     ></canvas>
     <div class="menu-container"> 
-      <NumberInput value={scale()} setValue={setScale} min={0.25} max={3.0} step={0.25} />
-      <input type='color' value={fillColor()} onChange={(e) => setFillColor(e.target.value)} />
-      <BgImageInput value={bgImage()} setValue={setBgImage} />
-      <div>{pos()?.x}, {pos()?.y}</div>
+      {/* <NumberInput value={scale()} setValue={setScale} min={0.2} max={3.0} step={0.05} /> */}
+      <h4>Ship length</h4>
+      <NumberInput value={identityShipLength()} setValue={setIdentityShipLength} min={5} step={1} />
+      <h4>Ship width</h4>
+      <NumberInput value={identityShipWidth()} setValue={setIdentityShipWidth} min={1} step={1} />
+      <div style={{ display: 'flex', 'justify-content': 'space-between', gap: '1rem' }}>
+        <input type='color' value={shipStrokeColor()} onChange={(e) => setShipStrokeColor(e.target.value)} title="Select ship color" />
+        <BgImageInput value={bgImage()} setValue={setBgImage} />
+      </div>
+      {/* <div>{pos()?.x}, {pos()?.y}</div> */}
     </div>
     </>
   )

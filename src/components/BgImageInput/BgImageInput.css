@@ -1,3 +1,13 @@
 .file-input {
     display: none;
 }
+
+.bg-image-button {
+    padding: 0;
+    line-height: 0;
+    border: 0;
+}
+
+.bg-image {
+    width: 2.5rem;
+}

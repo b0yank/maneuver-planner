@@ -27,7 +27,9 @@ export function BgImageInput(props: { value: UploadedImage | null, setValue: Set
 
   return (
     <>
-    <button onClick={() => inputRef!.click()}>Browse Images</button>
+    <button class="bg-image-button" onClick={() => inputRef!.click()} title="Browse background images">
+      <img class="bg-image" src="bg-image.svg" />
+    </button>
     <input ref={inputRef} type='file' accept='image/*' class='file-input' onChange={updateImageUrl} />
     </>
   )
