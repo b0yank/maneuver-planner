@@ -3,7 +3,6 @@ import './App.css';
 import { ShipPosition } from './models/ship-position.model';
 import { Ship } from './models/ship.model';
 import { getAngleBetweenPoints, getDistanceBetweenPoints, getRotatedPoint } from './utils/points';
-import { getClosestPointToLine, isPointInTriangle } from './utils/lines';
 import { Line } from './models/line.model';
 import { NumberInput } from './components/NumberInput/NumberInput';
 import { BgImageInput } from './components/BgImageInput/BgImageInput';
@@ -11,22 +10,9 @@ import { BgImageInput } from './components/BgImageInput/BgImageInput';
 const CANVAS_LENGTH = 1600;
 const CANVAS_WIDTH = 800;
 
-const IDENTITY_SHIP_LENGTH = 311;
-const IDENTITY_SHIP_WIDTH = 38;
-const IDENTITY_SHIP_SIDE_OFFSET = 11;
-
-const IDENTITY_SHIP_LENGTH_OFFSET = IDENTITY_SHIP_LENGTH - IDENTITY_SHIP_SIDE_OFFSET;
-const IDENTITY_SHIP_WIDTH_OFFSET = IDENTITY_SHIP_WIDTH - IDENTITY_SHIP_SIDE_OFFSET;
-
-const ROTATE_TOOL_WIDTH = 10;
-
-const PAN_ORTHO_TRIANGLE_HALF_WIDTH = 7;
-
 const DEFAULT_LINE_WIDTH = 1;
 const DEFAULT_STROKE_STYLE = '#000000';
 const DEFAULT_FILL_STYLE = '#121212';
-
-const TOOLS_COLOR = '#234567';
 
 function App() {
   const [context, setContext] = createSignal<CanvasRenderingContext2D>();
@@ -51,27 +37,6 @@ function App() {
   let nextId = '8';
   let canvasObserver: MutationObserver;
 
-  // const [scale, setScale] = createSignal<Matrix3x3>(Matrix3x3.eye);
-
-  // const [ships, setShips] = createSignal<Ship[]>([
-  //   {
-  //     origin: { x: 0, y: 0 },
-  //     rotation: 0,
-  //   },
-  //   {
-  //     origin: { x: 50, y: 50 },
-  //     rotation: (22.5 * Math.PI) / 180,
-  //   },
-  //   {
-  //     origin: { x: 100, y: 100 },
-  //     rotation: (45 * Math.PI) / 180,
-  //   },
-  //   {
-  //     origin: { x: 200, y: 200 },
-  //     rotation: (90 * Math.PI) / 180,
-  //   },
-  // ]);
-
   const [ships, setShips] = createSignal<Ship[]>([
     new Ship('1', { origin: new DOMPointReadOnly(0, 0), rotation: 0 }),
     new Ship('2', { origin: new DOMPointReadOnly(50, 50), rotation: 30 }),
@@ -80,31 +45,18 @@ function App() {
     new Ship('5', { origin: new DOMPointReadOnly(200, 200), rotation: 75 }),
     new Ship('6', { origin: new DOMPointReadOnly(250, 250), rotation: 90 }),
     new Ship('7', { origin: new DOMPointReadOnly(300, 300), rotation: 180 }),
-
-    // new DOMMatrix('translate(0px, 0px) rotateZ(0) scale(1, 1)'),
-    // new DOMMatrix('translate(50px, 50px) rotateZ(30deg) scale(1, 1)'),
-    // new DOMMatrix('translate(100px, 100px) rotateZ(45deg) scale(1, 1)'),
-    // new DOMMatrix('translate(150px, 150px) rotateZ(60deg) scale(1, 1)'),
-    // new DOMMatrix('translate(200px, 200px) rotateZ(75deg) scale(1.2, 1.2)'),
-    // new DOMMatrix('translate(250px, 250px) rotateZ(90deg) scale(0.8, 0.8)'),
   ])
 
   const identityShipSideOffset = () => identityShipWidth() * 0.3;
   const identityShipLengthOffset = () => identityShipLength() - identityShipSideOffset();
   const identityShipWidthOffset = () => identityShipWidth() - identityShipSideOffset();
   
-  const panOrthoTriangleHalfWidth = () => Math.min(Math.max(identityShipWidth() * 0.3, 8), 20);
-  const panToolRadius = () => identityShipLength() * 0.35;
-  const panToolInnerOrthoRadius = () => panToolRadius() + panOrthoTriangleHalfWidth() * 0.1; // TODO: fix as scaling ship length leaves a wider gap b/n pan & rotate
-  const panToolOuterOrthoRadius = () => panToolInnerOrthoRadius() + panOrthoTriangleHalfWidth() * 2.2;
+  const panToolRadius = () => identityShipLength() * 0.30;
 
-  const rotateToolInnerRadius = () => panToolOuterOrthoRadius();
+  const rotateToolInnerRadius = () => panToolRadius() * 1.05;
   const rotateToolOuterRadius = () => rotateToolInnerRadius() + rotateToolWidth();
 
-  const scaledShipLength = () => identityShipLength() * scale();
-  const scaledShipWidth = () => identityShipWidth() * scale();
-
-  const rotateToolWidth = () => identityShipLength() * 0.15;
+  const rotateToolWidth = () => identityShipLength() * 0.25;
 
   const createShip = (): Path2D => { 
 
@@ -136,17 +88,6 @@ function App() {
     return id;
   }
 
-  // const drawShip = (shipPosition: ShipPosition) => {
-  //   const ctx = context()!;
-
-  //   ctx.resetTransform();
-  //   ctx.strokeStyle = strokeColor();
-
-  //   const shipTransformationMatrix = scale().dot(shipPosition.rotate).dot(shipPosition.translate);
-
-  //   const domMatrix = new DOMMatrix([])
-  // }
-
   const drawShip = (ship: Ship) => {
     
     const ctx = context()!;
@@ -164,29 +105,6 @@ function App() {
       drawShipTools(ship);
     }
   }
-
-  // const drawShip = (ship: Ship) => {
-  //   const ctx = context()!;
-
-  //   ctx.resetTransform();
-  //   ctx.strokeStyle = strokeColor();
-  //   ctx.translate(ship.origin.x, ship.origin.y);
-
-  //   ctx.scale(scale(), scale());
-  //   ctx.rotate(ship.rotation);
-
-  //   ctx.moveTo(0, 0);
-  //   ctx.lineTo(25, 0);
-  //   ctx.lineTo(25, 80);
-  //   ctx.lineTo(17, 88);
-  //   ctx.lineTo(8, 88);
-  //   ctx.lineTo(0, 80);
-  //   ctx.lineTo(0, 0);
-
-  //   ctx.stroke();
-
-  //   ctx.strokeStyle = '#000000';
-  // }
 
   createEffect(() => {
     const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
@@ -238,7 +156,7 @@ function App() {
     
     ctx.setTransform(getShipDomMatrix(ship.position));
     
-    ctx.fillStyle = shipStrokeColor() + '1A'; // adding 1A for transparency of HEX color
+    ctx.fillStyle = shipStrokeColor() + '33'; // adding 1A for transparency of HEX color
     drawPanTool();
     
     ctx.strokeStyle = shipStrokeColor() + '1A'; // adding 1A for transparency of HEX color
@@ -255,42 +173,6 @@ function App() {
 
     ctx.beginPath();
     ctx.arc(0, 0, panToolRadius(), 0, 2 * Math.PI);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.fill();
-
-    ctx.moveTo(panToolOuterOrthoRadius(), 0);
-    ctx.beginPath();
-    ctx.lineTo(panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth());
-    ctx.lineTo(panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth());
-    ctx.lineTo(panToolOuterOrthoRadius(), 0);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.fill();
-
-    ctx.moveTo(-panToolOuterOrthoRadius(), 0);
-    ctx.beginPath();
-    ctx.lineTo(-panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth());
-    ctx.lineTo(-panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth());
-    ctx.lineTo(-panToolOuterOrthoRadius(), 0);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.fill();
-
-    ctx.moveTo(0, panToolOuterOrthoRadius());
-    ctx.beginPath();
-    ctx.lineTo(-panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius());
-    ctx.lineTo(panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius());
-    ctx.lineTo(0, panToolOuterOrthoRadius());
-    ctx.closePath();
-    ctx.stroke();
-    ctx.fill();
-
-    ctx.moveTo(0, -panToolOuterOrthoRadius());
-    ctx.beginPath();
-    ctx.lineTo(panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius());
-    ctx.lineTo(-panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius());
-    ctx.lineTo(0, -panToolOuterOrthoRadius());
     ctx.closePath();
     ctx.stroke();
     ctx.fill();
@@ -330,10 +212,20 @@ function App() {
 
     const selectedShip = getSelectedShip()!;
 
+    const textOrigin = getShipDomMatrix(selectedShip.position)
+      .transformPoint(new DOMPointReadOnly(0, rotateToolOuterRadius()));
+
+    const rotationInDegreesFromNorth = Math.round(canvasDegreesToShipCourseDegrees(selectedShip.position.rotation)) % 360;
+
+    const isInLeftHalfPlane = rotationInDegreesFromNorth > 180;
+    const isInTopHalfPlane = rotationInDegreesFromNorth < 90 || rotationInDegreesFromNorth > 270;
+
+    ctx.textAlign = isInLeftHalfPlane ? 'right' : 'left';
+    ctx.textBaseline = isInTopHalfPlane ? 'bottom' : 'top';
     ctx.fillText(
-      `00${canvasDegreesToShipCourseDegrees(selectedShip.position.rotation).toFixed(1)}°`.slice(-6), 
-      selectedShip.position.origin.x + 35, 
-      selectedShip.position.origin.y - rotateToolOuterRadius() 
+      `00${rotationInDegreesFromNorth}°`.slice(-4), 
+      textOrigin.x, 
+      textOrigin.y
     );
 
     ctx.fillStyle = initialFillStyle;
@@ -343,20 +235,6 @@ function App() {
     return new DOMMatrix(
       `translate(${shipPosition.origin.x}px, ${shipPosition.origin.y}px) rotateZ(${shipPosition.rotation}deg) scale(${scale()}, ${scale()})`
     );
-  }
-
-  const getShipCenterLine = (ship: Ship) => {
-    const bowPointInitial = new DOMPointReadOnly(ship.position.origin.x, ship.position.origin.y + scaledShipLength() / 2);
-
-    const bowPoint = getRotatedPoint(bowPointInitial, ship.position.origin, ship.position.rotation);
-    return new Line(ship.position.origin, bowPoint);
-  }
-
-  const getShipMidshipLine = (ship: Ship) => {
-    const portsidePointInitial = new DOMPointReadOnly(ship.position.origin.x + scaledShipWidth(), ship.position.origin.y);
-
-    const portsidePoint = getRotatedPoint(portsidePointInitial, ship.position.origin, ship.position.rotation);
-    return new Line(ship.position.origin, portsidePoint);
   }
 
   const getSelectedShip = (): Ship | null => {
@@ -427,43 +305,12 @@ function App() {
     return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius() * scale();
   }
 
-  const updateMovementLine = (click: DOMPointReadOnly): boolean => {
-
-    const selectedShip = getSelectedShip()!;
-
-    if (
-      isClickInRightPanTriangle(selectedShip, click) ||
-      isClickInLeftPanTriangle(selectedShip, click)
-    ) {
-      setMovementLine(getShipMidshipLine(selectedShip));
-       
-      return true;
-    }
-    
-    if (
-      isClickInTopPanTriangle(selectedShip, click) || 
-      isClickInBottomPanTriangle(selectedShip, click)
-    ) {
-      setMovementLine(getShipCenterLine(selectedShip));
-      
-      return true;
-    }
-    
-    if (movementLine() !== null) {
-      setMovementLine(null);
-    }
-
-    return false;
-  }
-
   const handlePan = (click: DOMPointReadOnly): boolean => {
     const selectedShip = getSelectedShip()!;
 
     if (selectedShip) {
 
-      const panningWithMovementLines = updateMovementLine(click);
-
-      if (panningWithMovementLines || getDistanceBetweenPoints(selectedShip.position.origin, click) <= panToolRadius()) {
+      if (getDistanceBetweenPoints(selectedShip.position.origin, click) <= panToolRadius()) {
         setMouseHoldStart(click);
 
         if (shiftPressed()) {
@@ -481,46 +328,6 @@ function App() {
     }
 
     return false;
-  }
-
-  const isClickInRightPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
-    
-    return isPointInTriangle(
-      transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(-panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth()),
-      new DOMPointReadOnly(-panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth()),
-      new DOMPointReadOnly(-panToolOuterOrthoRadius(), 0),
-    );
-  }
-  
-  const isClickInLeftPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
-    
-    return isPointInTriangle(
-      transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(panToolInnerOrthoRadius(), -panOrthoTriangleHalfWidth()),
-      new DOMPointReadOnly(panToolInnerOrthoRadius(), panOrthoTriangleHalfWidth()),
-      new DOMPointReadOnly(panToolOuterOrthoRadius(), 0),
-    );
-  }
-
-  const isClickInTopPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
-    
-    return isPointInTriangle(
-      transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(-panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius()),
-      new DOMPointReadOnly(panOrthoTriangleHalfWidth(), panToolInnerOrthoRadius()),
-      new DOMPointReadOnly(0, panToolOuterOrthoRadius()),
-    );
-  }
-  
-  const isClickInBottomPanTriangle = (ship: Ship, click: DOMPointReadOnly) => {
-    
-    return isPointInTriangle(
-      transformPointByInverseShipMatrix(click, ship),
-      new DOMPointReadOnly(panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius()),
-      new DOMPointReadOnly(-panOrthoTriangleHalfWidth(), -panToolInnerOrthoRadius()),
-      new DOMPointReadOnly(0, -panToolOuterOrthoRadius()),
-    );
   }
 
   const isClickOnRotate = (click: DOMPointReadOnly): boolean => {
@@ -621,14 +428,19 @@ function App() {
       return;
     }
     
-    const selectedShipCenterPoint = getSelectedShip()!.position.origin;
+    const selectedShip = getSelectedShip();
+    if (!selectedShip) {
+      return;
+    }
+
+    const selectedShipCenterPoint = selectedShip.position.origin;
     const rotateEndPosition = getMouseEventPosition(event);
     
     const rotateStartAngle = getAngleBetweenPoints(selectedShipCenterPoint, mouseHoldStartPosition);
     const rotateEndAngle = getAngleBetweenPoints(selectedShipCenterPoint, rotateEndPosition);
 
-    const modifiedShip = copyShip(getSelectedShip()!, true);
-    modifiedShip.position.rotation = modifiedShip.position.rotation + rotateEndAngle - rotateStartAngle;
+    const modifiedShip = copyShip(selectedShip, true);
+    modifiedShip.position.rotation = (360 + (modifiedShip.position.rotation + rotateEndAngle - rotateStartAngle)) % 360;
     setShips((currentShips) => currentShips
       .filter(s => s.id !== modifiedShip.id)
       .concat([modifiedShip])
@@ -656,15 +468,10 @@ function App() {
 
     const modifiedShip = copyShip(getSelectedShip()!, true);
     
-    let newShipOrigin = new DOMPointReadOnly(
+    const newShipOrigin = new DOMPointReadOnly(
       modifiedShip.position.origin.x + dx, 
       modifiedShip.position.origin.y + dy 
     );
-
-    const currentMovementLine = movementLine();
-    if (currentMovementLine) {
-      newShipOrigin = getClosestPointToLine(currentMovementLine, newShipOrigin);
-    }
 
     modifiedShip.position.origin = newShipOrigin;
 
