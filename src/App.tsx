@@ -2,8 +2,7 @@ import { createEffect, createSignal, onCleanup } from 'solid-js';
 import './App.css';
 import { ShipPosition } from './models/ship-position.model';
 import { Ship } from './models/ship.model';
-import { getAngleBetweenPoints, getDistanceBetweenPoints, getRotatedPoint } from './utils/points';
-import { Line } from './models/line.model';
+import { getAngleBetweenPoints, getDistanceBetweenPoints } from './utils/points';
 import { NumberInput } from './components/NumberInput/NumberInput';
 import { BgImageInput } from './components/BgImageInput/BgImageInput';
 
@@ -24,27 +23,18 @@ function App() {
   const [strokeColor, setStrokeColor] = createSignal<string>('black');
   const [shipStrokeColor, setShipStrokeColor] = createSignal<string>('#020595');
   const [lineWidth, setLineWidth] = createSignal<number>(1);
-  const [scale, setScale] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
   const [selectedShipId, setSelectedShipId] = createSignal<string | null>(null);
   const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | 'copy' | null>(null);
-  const [movementLine, setMovementLine] = createSignal<Line | null>(null);
-  const [pos, setPos] = createSignal<DOMPoint | null>(null);
 
   const [shiftPressed, setShiftPressed] = createSignal<boolean>(false);
   const [ctrlPressed, setCtrlPressed] = createSignal<boolean>(false);
 
-  let nextId = '8';
+  let nextId = '2';
   let canvasObserver: MutationObserver;
 
   const [ships, setShips] = createSignal<Ship[]>([
-    new Ship('1', { origin: new DOMPointReadOnly(0, 0), rotation: 0 }),
-    new Ship('2', { origin: new DOMPointReadOnly(50, 50), rotation: 30 }),
-    new Ship('3', { origin: new DOMPointReadOnly(100, 100), rotation: 45 }),
-    new Ship('4', { origin: new DOMPointReadOnly(150, 150), rotation: 60 }),
-    new Ship('5', { origin: new DOMPointReadOnly(200, 200), rotation: 75 }),
-    new Ship('6', { origin: new DOMPointReadOnly(250, 250), rotation: 90 }),
-    new Ship('7', { origin: new DOMPointReadOnly(300, 300), rotation: 180 }),
+    new Ship('1', { origin: new DOMPointReadOnly(300, 300), rotation: 180 }),
   ])
 
   const identityShipSideOffset = () => identityShipWidth() * 0.3;
@@ -233,7 +223,7 @@ function App() {
 
   const getShipDomMatrix = (shipPosition: ShipPosition): DOMMatrix => {
     return new DOMMatrix(
-      `translate(${shipPosition.origin.x}px, ${shipPosition.origin.y}px) rotateZ(${shipPosition.rotation}deg) scale(${scale()}, ${scale()})`
+      `translate(${shipPosition.origin.x}px, ${shipPosition.origin.y}px) rotateZ(${shipPosition.rotation}deg)`
     );
   }
 
@@ -302,7 +292,7 @@ function App() {
   const isClickInTools = (ship: Ship, click: DOMPointReadOnly) => {
 
     const shipCenter = ship.position.origin;
-    return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius() * scale();
+    return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius();
   }
 
   const handlePan = (click: DOMPointReadOnly): boolean => {
@@ -336,8 +326,8 @@ function App() {
     if (selectedShip) {
       const distanceToCenter = getDistanceBetweenPoints(selectedShip.position.origin, click);
       
-      return distanceToCenter >= (rotateToolInnerRadius() * scale())
-          && distanceToCenter <= (rotateToolOuterRadius() * scale());
+      return distanceToCenter >= rotateToolInnerRadius()
+          && distanceToCenter <= rotateToolOuterRadius();
     }
 
     return false;
@@ -413,7 +403,6 @@ function App() {
   }
 
   const handleMouseMove = (event: MouseEvent | TouchEvent) => {
-    setPos(getMouseEventPosition(event))
     if (activeCommand() === 'pan') {
       handlePanMove(event, false);
     } else if (activeCommand() === 'rotate') {
