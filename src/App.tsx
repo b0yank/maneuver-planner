@@ -6,12 +6,10 @@ import { getAngleBetweenPoints, getDistanceBetweenPoints } from './utils/points'
 import { NumberInput } from './components/NumberInput/NumberInput';
 import { BgImageInput } from './components/BgImageInput/BgImageInput';
 
-const CANVAS_LENGTH = 1600;
-const CANVAS_WIDTH = 800;
-
 const DEFAULT_LINE_WIDTH = 1;
 const DEFAULT_STROKE_STYLE = '#000000';
 const DEFAULT_FILL_STYLE = '#121212';
+const DEFAULT_SHIP_STROKE_COLOR = '#020595';
 
 function App() {
   const [context, setContext] = createSignal<CanvasRenderingContext2D>();
@@ -20,9 +18,9 @@ function App() {
   const [identityShipWidth, setIdentityShipWidth] = createSignal<number>(38);
 
   const [bgImage, setBgImage] = createSignal<{ url: string, width: number, height: number } | null>(null);
-  const [strokeColor, setStrokeColor] = createSignal<string>('black');
-  const [shipStrokeColor, setShipStrokeColor] = createSignal<string>('#020595');
-  const [lineWidth, setLineWidth] = createSignal<number>(1);
+  const [strokeColor, _setStrokeColor] = createSignal<string>('black');
+  const [shipStrokeColor, setShipStrokeColor] = createSignal<string>(DEFAULT_SHIP_STROKE_COLOR);
+  const [lineWidth, _setLineWidth] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
   const [selectedShipId, setSelectedShipId] = createSignal<string | null>(null);
   const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | 'copy' | null>(null);
@@ -30,11 +28,23 @@ function App() {
   const [shiftPressed, setShiftPressed] = createSignal<boolean>(false);
   const [ctrlPressed, setCtrlPressed] = createSignal<boolean>(false);
 
+  const [menuPositionFromTopRight, setMenuPositionFromTopRight] = createSignal<DOMPointReadOnly>(new DOMPointReadOnly(0, 0));
+  const [menuDragStart, setMenuDragStart] = createSignal<DOMPointReadOnly | null>(null);
+
   let nextId = '2';
   let canvasObserver: MutationObserver;
 
+  const canvasWidth = () => {
+    return bgImage() ? bgImage()!.width : (document.documentElement.clientWidth * 0.95);
+  }
+
+  const canvasHeight = () => {
+    return bgImage() ? bgImage()!.height : (document.documentElement.clientHeight * 0.95);
+  }
+  console.log(shipStrokeColor());
+  
   const [ships, setShips] = createSignal<Ship[]>([
-    new Ship('1', { origin: new DOMPointReadOnly(300, 300), rotation: 180 }),
+    new Ship('1', { origin: new DOMPointReadOnly(canvasWidth() / 2, canvasHeight() / 2), rotation: 180 }, shipStrokeColor()),
   ])
 
   const identityShipSideOffset = () => identityShipWidth() * 0.3;
@@ -86,9 +96,9 @@ function App() {
     
     const shipPath = createShip();
 
-    ctx.fillStyle = shipStrokeColor();
+    ctx.fillStyle = ship.strokeColor;
     ctx.lineWidth = 3;
-    ctx.strokeStyle = shipStrokeColor();
+    ctx.strokeStyle = ship.strokeColor;
     ctx.stroke(shipPath);
 
     if (selectedShipId() === ship.id) {
@@ -110,6 +120,11 @@ function App() {
     canvasObserver = new MutationObserver(drawAllShips);
     canvasObserver.observe(canvas, { attributeFilter: ['width', 'height'] });
 
+    const menu = document.getElementById('menu') as HTMLDivElement | null;
+    if (!menu) {
+      throw new Error('Cannot find menu element');
+    }
+
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
   });
@@ -124,7 +139,7 @@ function App() {
 
     const ctx = context()!;
 
-    ctx.clearRect(0, 0, CANVAS_LENGTH, CANVAS_WIDTH);
+    ctx.clearRect(0, 0, canvasWidth(), canvasHeight());
     ctx.lineWidth = DEFAULT_LINE_WIDTH;
     ctx.strokeStyle = DEFAULT_STROKE_STYLE;
     ctx.fillStyle = DEFAULT_FILL_STYLE;
@@ -146,14 +161,14 @@ function App() {
     
     ctx.setTransform(getShipDomMatrix(ship.position));
     
-    ctx.fillStyle = shipStrokeColor() + '33'; // adding 1A for transparency of HEX color
+    ctx.fillStyle = ship.strokeColor + '33'; // adding 1A for transparency of HEX color
     drawPanTool();
     
-    ctx.strokeStyle = shipStrokeColor() + '1A'; // adding 1A for transparency of HEX color
+    ctx.strokeStyle = ship.strokeColor + '1A'; // adding 1A for transparency of HEX color
     drawRotateTool();
 
     ctx.strokeStyle = strokeColor();
-    ctx.fillStyle = shipStrokeColor();
+    ctx.fillStyle = ship.strokeColor;
   }
 
   const drawPanTool = () => {
@@ -172,7 +187,8 @@ function App() {
 
     const ctx = context()!;
 
-    ctx.strokeStyle = shipStrokeColor() + '1A'; // adding 1A for transparency of HEX color
+    const selectedShip = getSelectedShip();
+    ctx.strokeStyle = selectedShip!.strokeColor + '1A'; // adding 1A for transparency of HEX color
 
     ctx.beginPath();
     ctx.arc(0, 0, rotateToolInnerRadius() + (rotateToolOuterRadius() - rotateToolInnerRadius()) / 2, 0, 2 * Math.PI);
@@ -195,7 +211,7 @@ function App() {
   const drawShipCourse = () => {
 
     const ctx = context()!;
-    ctx.font = "48px serif";
+    ctx.font = "36px serif";
 
     const initialFillStyle = ctx.fillStyle;
     ctx.fillStyle = 'black';
@@ -262,9 +278,12 @@ function App() {
   }
 
   const copyShip = (ship: Ship, keepId: boolean): Ship => {
+    console.log(ship.strokeColor);
+    
     return new Ship(
       keepId ? ship.id : getNextShipId(), 
-      { rotation: ship.position.rotation, origin: DOMPointReadOnly.fromPoint(ship.position.origin) }
+      { rotation: ship.position.rotation, origin: DOMPointReadOnly.fromPoint(ship.position.origin) },
+      ship.strokeColor
     );
   }
 
@@ -504,14 +523,71 @@ function App() {
     }
   }
 
-  const log = (event: any) => console.log(event); 
+  const startMenuDrag = (event: MouseEvent) => {
+    const dragStartPoint = getMouseEventPosition(event);
+    setMenuDragStart(dragStartPoint);
+  }
+
+  const dragMenu = (event: MouseEvent) => {
+    
+    const oldDragPoint = menuDragStart();
+    if (oldDragPoint) {
+      const mousePosition = getMouseEventPosition(event);
+
+      const menuPosition = menuPositionFromTopRight();
+      const menu = document.getElementById('menu');
+      const newMenuPosition = new DOMPointReadOnly(
+        Math.min(Math.max(menuPosition.x + oldDragPoint.x - mousePosition.x, 0), canvasWidth() - (menu?.clientWidth || 0)),
+        Math.min(Math.max(menuPosition.y + mousePosition.y - oldDragPoint.y, 0), canvasHeight() - (menu?.clientHeight || 0)),
+      );
+      
+      setMenuPositionFromTopRight(newMenuPosition);
+      setMenuDragStart(mousePosition);
+    }
+  }
+
+  const endMenuDrag = () => {
+    setMenuDragStart(null);
+  }
+
+  const selectShipColor = (event: Event & { currentTarget: HTMLInputElement; target: HTMLInputElement; }) => {
+    
+    const selectedShip = getSelectedShip();
+    if (selectedShip) {
+      
+      selectedShip.strokeColor = event.target.value;
+      setShips(ships =>
+        ships.map(ship => {
+          if (ship.id === selectedShip.id) {
+            const selectedShipCopy = copyShip(selectedShip, true);
+            selectedShipCopy.strokeColor = event.target.value;
+            return selectedShipCopy;
+          }
+
+          return ship;
+        })
+      )
+    } else {
+      setShips(ships => 
+        ships.map(ship => {
+          const shipCopy = copyShip(ship, true);
+          shipCopy.strokeColor = event.target.value;
+          return shipCopy;
+        })
+      );
+
+      setShipStrokeColor(event.target.value);
+    }
+  }
+
+  // const log = (event: any) => console.log(event); 
 
   return (
     <>
     <canvas
       id='canvas' 
-      width={bgImage() ? bgImage()!.width : CANVAS_LENGTH} 
-      height={bgImage() ? bgImage()!.height : CANVAS_WIDTH} 
+      width={canvasWidth()} 
+      height={canvasHeight()} 
       class='canvas'
       style={{ 'background-image': bgImage() ? `url(${bgImage()!.url})` : 'none' }}
       onMouseDown={handleMouseDown}
@@ -521,14 +597,23 @@ function App() {
       onMouseMove={handleMouseMove}
       onTouchMove={handleMouseMove}
     ></canvas>
-    <div class="menu-container"> 
+    <div 
+      id="menu"
+      style={{
+        top: `${menuPositionFromTopRight().y.toString()}px`,
+        right: `${menuPositionFromTopRight().x.toString()}px`,
+      }}
+      onMouseDown={startMenuDrag}
+      onMouseMove={dragMenu}
+      onMouseUp={endMenuDrag}
+    > 
       {/* <NumberInput value={scale()} setValue={setScale} min={0.2} max={3.0} step={0.05} /> */}
       <h4>Ship length</h4>
       <NumberInput value={identityShipLength()} setValue={setIdentityShipLength} min={5} step={1} />
       <h4>Ship width</h4>
       <NumberInput value={identityShipWidth()} setValue={setIdentityShipWidth} min={1} step={1} />
       <div style={{ display: 'flex', 'justify-content': 'space-between', gap: '1rem' }}>
-        <input type='color' value={shipStrokeColor()} onChange={(e) => setShipStrokeColor(e.target.value)} title="Select ship color" />
+        <input type='color' value={getSelectedShip()?.strokeColor || shipStrokeColor()} onInput={selectShipColor} title="Select ship color" />
         <BgImageInput value={bgImage()} setValue={setBgImage} />
       </div>
       {/* <div>{pos()?.x}, {pos()?.y}</div> */}

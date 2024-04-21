@@ -19,7 +19,7 @@
   background-repeat: no-repeat;
 }
 
-.menu-container {
+#menu {
   position: absolute;
   right: 0;
   top: 0;
@@ -29,14 +29,15 @@
   row-gap: .5rem;
   background-color: #ffffff;
   border: 1px solid black;
+  cursor: pointer;
 }
 
-.menu-container input[type="color"] {
+#menu input[type="color"] {
   width: 2.5rem;
   height: 2.5rem;
   cursor: pointer;
 }
 
-.menu-container h4 {
+#menu h4 {
   margin: 0;
 }

@@ -2,7 +2,7 @@
 
 export class Ship {
 
-  constructor(private _id: string, private _position: Ship.Position) {
+  constructor(private _id: string, private _position: Ship.Position, private _strokeColor: string) {
   }
 
   get id() {
@@ -11,6 +11,14 @@ export class Ship {
 
   get position() {
     return this._position;
+  }
+
+  get strokeColor(): string {
+    return this._strokeColor;
+  }
+
+  set strokeColor(color: string) {
+    this._strokeColor = color;
   }
 
   // getCenterLine(): Line {
