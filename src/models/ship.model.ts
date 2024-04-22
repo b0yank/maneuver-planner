@@ -1,8 +1,6 @@
-// import { Line } from "./line.model";
-
 export class Ship {
 
-  constructor(private _id: string, private _position: Ship.Position, private _strokeColor: string) {
+  constructor(private _id: string, private _position: Ship.Position, private _strokeColor: string, private _length: number, private _width: number) {
   }
 
   get id() {
@@ -21,15 +19,21 @@ export class Ship {
     this._strokeColor = color;
   }
 
-  // getCenterLine(): Line {
-  //   const point = new DOMPointReadOnly(this.position.origin.x, this.position.origin.y);
+  get length(): number {
+    return this._length;
+  }
 
-    
-  // }
+  get width(): number {
+    return this._width
+  }
 
-  // getMidFrameLine(): Line {
-    
-  // }
+  set length(value: number) {
+    this._length = value;
+  }
+
+  set width(value: number) {
+    this._width = value;
+  }
 }
 
 export namespace Ship {

@@ -41,39 +41,41 @@ function App() {
   const canvasHeight = () => {
     return bgImage() ? bgImage()!.height : (document.documentElement.clientHeight * 0.95);
   }
-  console.log(shipStrokeColor());
   
   const [ships, setShips] = createSignal<Ship[]>([
-    new Ship('1', { origin: new DOMPointReadOnly(canvasWidth() / 2, canvasHeight() / 2), rotation: 180 }, shipStrokeColor()),
-  ])
+    new Ship('1', { origin: new DOMPointReadOnly(canvasWidth() / 2, canvasHeight() / 2), rotation: 180 }, shipStrokeColor(), identityShipLength(), identityShipWidth()),
+  ]);
 
-  const identityShipSideOffset = () => identityShipWidth() * 0.3;
-  const identityShipLengthOffset = () => identityShipLength() - identityShipSideOffset();
-  const identityShipWidthOffset = () => identityShipWidth() - identityShipSideOffset();
+  const getShipSideOffset = (ship: Ship) => ship.width * 0.3;
+  const getShipLengthOffset = (ship: Ship) => ship.length - getShipSideOffset(ship);
+  const getShipWidthOffset = (ship: Ship) => ship.width - getShipSideOffset(ship);
   
-  const panToolRadius = () => identityShipLength() * 0.30;
+  const panToolRadius = (ship: Ship) => ship.length * 0.30;
 
-  const rotateToolInnerRadius = () => panToolRadius() * 1.05;
-  const rotateToolOuterRadius = () => rotateToolInnerRadius() + rotateToolWidth();
+  const rotateToolInnerRadius = (ship: Ship) => panToolRadius(ship) * 1.05;
+  const rotateToolOuterRadius = (ship: Ship) => rotateToolInnerRadius(ship) + rotateToolWidth(ship);
 
-  const rotateToolWidth = () => identityShipLength() * 0.25;
+  const rotateToolWidth = (ship: Ship) => ship.length * 0.25;
 
-  const createShip = (): Path2D => { 
+  const createShip = (ship: Ship): Path2D => { 
 
     const ctx = context()!;
     ctx.beginPath();
 
     const shipPath = new Path2D();
 
-    const halfWidth = identityShipWidth() / 2;
-    const halfLength = identityShipLength() / 2;
+    const shipLength = ship.length;
+    const shipWidth = ship.width;
+
+    const halfWidth = shipWidth / 2;
+    const halfLength = shipLength / 2;
 
     shipPath.moveTo((-halfWidth) + 0, (-halfLength) + 0);
-    shipPath.lineTo((-halfWidth) + identityShipWidth(), (-halfLength) + 0);
-    shipPath.lineTo((-halfWidth) + identityShipWidth(), (-halfLength) + identityShipLengthOffset());
-    shipPath.lineTo((-halfWidth) + identityShipWidthOffset(), (-halfLength) + identityShipLength());
-    shipPath.lineTo((-halfWidth) + identityShipSideOffset(), (-halfLength) + identityShipLength());
-    shipPath.lineTo((-halfWidth) + 0, (-halfLength) + identityShipLengthOffset());
+    shipPath.lineTo((-halfWidth) + shipWidth, (-halfLength) + 0);
+    shipPath.lineTo((-halfWidth) + shipWidth, (-halfLength) + getShipLengthOffset(ship));
+    shipPath.lineTo((-halfWidth) + getShipWidthOffset(ship), (-halfLength) + shipLength);
+    shipPath.lineTo((-halfWidth) + getShipSideOffset(ship), (-halfLength) + shipLength);
+    shipPath.lineTo((-halfWidth) + 0, (-halfLength) + getShipLengthOffset(ship));
     shipPath.lineTo((-halfWidth) + 0, (-halfLength) + 0);
 
     ctx.closePath();
@@ -94,7 +96,7 @@ function App() {
     ctx.strokeStyle = strokeColor();
     ctx.setTransform(getShipDomMatrix(ship.position));
     
-    const shipPath = createShip();
+    const shipPath = createShip(ship);
 
     ctx.fillStyle = ship.strokeColor;
     ctx.lineWidth = 3;
@@ -162,7 +164,7 @@ function App() {
     ctx.setTransform(getShipDomMatrix(ship.position));
     
     ctx.fillStyle = ship.strokeColor + '33'; // adding 1A for transparency of HEX color
-    drawPanTool();
+    drawPanTool(ship);
     
     ctx.strokeStyle = ship.strokeColor + '1A'; // adding 1A for transparency of HEX color
     drawRotateTool();
@@ -171,13 +173,13 @@ function App() {
     ctx.fillStyle = ship.strokeColor;
   }
 
-  const drawPanTool = () => {
+  const drawPanTool = (ship: Ship) => {
 
     const ctx = context()!;
     ctx.strokeStyle = 'black';
 
     ctx.beginPath();
-    ctx.arc(0, 0, panToolRadius(), 0, 2 * Math.PI);
+    ctx.arc(0, 0, panToolRadius(ship), 0, 2 * Math.PI);
     ctx.closePath();
     ctx.stroke();
     ctx.fill();
@@ -187,24 +189,24 @@ function App() {
 
     const ctx = context()!;
 
-    const selectedShip = getSelectedShip();
-    ctx.strokeStyle = selectedShip!.strokeColor + '1A'; // adding 1A for transparency of HEX color
+    const selectedShip = getSelectedShip()!;
+    ctx.strokeStyle = selectedShip.strokeColor + '1A'; // adding 1A for transparency of HEX color
 
     ctx.beginPath();
-    ctx.arc(0, 0, rotateToolInnerRadius() + (rotateToolOuterRadius() - rotateToolInnerRadius()) / 2, 0, 2 * Math.PI);
-    ctx.lineWidth = rotateToolOuterRadius() - rotateToolInnerRadius();
+    ctx.arc(0, 0, rotateToolInnerRadius(selectedShip) + (rotateToolOuterRadius(selectedShip) - rotateToolInnerRadius(selectedShip)) / 2, 0, 2 * Math.PI);
+    ctx.lineWidth = rotateToolOuterRadius(selectedShip) - rotateToolInnerRadius(selectedShip);
     ctx.closePath();
     ctx.stroke();
     
     ctx.lineWidth = lineWidth();
 
     ctx.beginPath();
-    ctx.arc(0, 0, rotateToolInnerRadius(), 0, 2 * Math.PI);
+    ctx.arc(0, 0, rotateToolInnerRadius(selectedShip), 0, 2 * Math.PI);
     ctx.strokeStyle = 'black';
     ctx.stroke();
     
     ctx.beginPath();
-    ctx.arc(0, 0, rotateToolOuterRadius(), 0, 2 * Math.PI);
+    ctx.arc(0, 0, rotateToolOuterRadius(selectedShip), 0, 2 * Math.PI);
     ctx.stroke();
   }
 
@@ -219,7 +221,7 @@ function App() {
     const selectedShip = getSelectedShip()!;
 
     const textOrigin = getShipDomMatrix(selectedShip.position)
-      .transformPoint(new DOMPointReadOnly(0, rotateToolOuterRadius()));
+      .transformPoint(new DOMPointReadOnly(0, rotateToolOuterRadius(selectedShip)));
 
     const rotationInDegreesFromNorth = Math.round(canvasDegreesToShipCourseDegrees(selectedShip.position.rotation)) % 360;
 
@@ -253,7 +255,7 @@ function App() {
 
     const transformedPoint = transformPointByInverseShipMatrix(position, ship);
     
-    return isPointInIdentityShip(transformedPoint);
+    return isPointInShip(transformedPoint, ship);
   }
 
   const transformPointByInverseShipMatrix = (point: DOMPointReadOnly, ship: Ship) => {
@@ -278,30 +280,34 @@ function App() {
   }
 
   const copyShip = (ship: Ship, keepId: boolean): Ship => {
-    console.log(ship.strokeColor);
-    
     return new Ship(
       keepId ? ship.id : getNextShipId(), 
       { rotation: ship.position.rotation, origin: DOMPointReadOnly.fromPoint(ship.position.origin) },
-      ship.strokeColor
+      ship.strokeColor,
+      ship.length,
+      ship.width
     );
   }
 
-  const isPointInIdentityShip = (point: DOMPointReadOnly): boolean => {
-    // point is adjusted to compensate for the fact that the ship origin is in the center of the ship, instead of an endpoint
-    const adjustedPoint = new DOMPointReadOnly(point.x + identityShipWidth() / 2, point.y + identityShipLength() / 2);
+  const isPointInShip = (point: DOMPointReadOnly, ship: Ship): boolean => {
 
-    const isWithinXBounds = adjustedPoint.x >= 0 && adjustedPoint.x <= identityShipWidth();
-    const isWithinYBounds = adjustedPoint.y >= 0 && adjustedPoint.y <= identityShipLength();
+    const shipLength = ship.length;
+    const shipWidth = ship.width;
+
+    // point is adjusted to compensate for the fact that the ship origin is in the center of the ship, instead of an endpoint
+    const adjustedPoint = new DOMPointReadOnly(point.x + shipWidth / 2, point.y + shipLength / 2);
+
+    const isWithinXBounds = adjustedPoint.x >= 0 && adjustedPoint.x <= shipWidth;
+    const isWithinYBounds = adjustedPoint.y >= 0 && adjustedPoint.y <= shipLength;
 
     if (isWithinXBounds && isWithinYBounds) {
-      if (adjustedPoint.y <= identityShipLengthOffset()) {
+      if (adjustedPoint.y <= getShipLengthOffset(ship)) {
         return true;
       }
   
-      if (adjustedPoint.y <= identityShipLength()) {
-        return (adjustedPoint.x <= identityShipWidthOffset() && adjustedPoint.x >= (adjustedPoint.y - identityShipLengthOffset())) 
-            || (adjustedPoint.x > identityShipWidthOffset() && adjustedPoint.x + (adjustedPoint.y - identityShipLengthOffset()) <= identityShipWidth());
+      if (adjustedPoint.y <= shipLength) {
+        return (adjustedPoint.x <= getShipWidthOffset(ship) && adjustedPoint.x >= (adjustedPoint.y - getShipLengthOffset(ship))) 
+            || (adjustedPoint.x > getShipWidthOffset(ship) && adjustedPoint.x + (adjustedPoint.y - getShipLengthOffset(ship)) <= shipWidth);
       }
     }
 
@@ -311,7 +317,7 @@ function App() {
   const isClickInTools = (ship: Ship, click: DOMPointReadOnly) => {
 
     const shipCenter = ship.position.origin;
-    return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius();
+    return getDistanceBetweenPoints(shipCenter, click) <= rotateToolOuterRadius(ship);
   }
 
   const handlePan = (click: DOMPointReadOnly): boolean => {
@@ -319,7 +325,7 @@ function App() {
 
     if (selectedShip) {
 
-      if (getDistanceBetweenPoints(selectedShip.position.origin, click) <= panToolRadius()) {
+      if (getDistanceBetweenPoints(selectedShip.position.origin, click) <= panToolRadius(selectedShip)) {
         setMouseHoldStart(click);
 
         if (shiftPressed()) {
@@ -345,8 +351,8 @@ function App() {
     if (selectedShip) {
       const distanceToCenter = getDistanceBetweenPoints(selectedShip.position.origin, click);
       
-      return distanceToCenter >= rotateToolInnerRadius()
-          && distanceToCenter <= rotateToolOuterRadius();
+      return distanceToCenter >= rotateToolInnerRadius(selectedShip)
+          && distanceToCenter <= rotateToolOuterRadius(selectedShip);
     }
 
     return false;
@@ -580,6 +586,88 @@ function App() {
     }
   }
 
+  const getInputShipLengthValue = () => {
+
+    const selectedShip = getSelectedShip();
+    return selectedShip?.length || identityShipLength();
+  }
+
+  const getInputShipWidthValue = () => {
+
+    const selectedShip = getSelectedShip();
+    return selectedShip?.width || identityShipWidth();
+  }
+
+  const setInputShipLengthValue = (value: number) => {
+
+    const selectedShip = getSelectedShip();
+
+    if (selectedShip) {
+      setShips(ships => ships.map(ship => {
+        if (selectedShip.id === ship.id) {
+          const copy = copyShip(selectedShip, true);
+          copy.length = value;
+
+          return copy;
+        }
+
+        return ship;
+      }));
+    } else {
+      setShips(ships => ships.map(ship => {
+
+        if (
+          (ship.length === identityShipLength()) && 
+          (ship.width === identityShipWidth())
+        ) {
+          const copy = copyShip(ship, true);
+          copy.length = value;
+
+          return copy;
+        }
+        
+        return ship;
+      }));
+
+      setIdentityShipLength(value);
+    }
+  }
+
+  const setInputShipWidthValue = (value: number) => {
+
+    const selectedShip = getSelectedShip();
+
+    if (selectedShip) {
+      setShips(ships => ships.map(ship => {
+          if (selectedShip.id === ship.id) {
+            const copy = copyShip(selectedShip, true);
+            copy.width = value;
+            
+            return copy;
+          }
+          
+          return ship;
+      }));
+    } else {
+      setShips(ships => ships.map(ship => {
+        
+        if (
+          (ship.length === identityShipLength()) && 
+          (ship.width === identityShipWidth())
+        ) {
+          const copy = copyShip(ship, true);
+          copy.width = value;
+
+          return copy;
+        }
+        
+        return ship;
+      }));
+
+      setIdentityShipWidth(value);
+    }
+  }
+
   // const log = (event: any) => console.log(event); 
 
   return (
@@ -609,9 +697,9 @@ function App() {
     > 
       {/* <NumberInput value={scale()} setValue={setScale} min={0.2} max={3.0} step={0.05} /> */}
       <h4>Ship length</h4>
-      <NumberInput value={identityShipLength()} setValue={setIdentityShipLength} min={5} step={1} />
+      <NumberInput value={getInputShipLengthValue()} setValue={setInputShipLengthValue} min={5} step={1} />
       <h4>Ship width</h4>
-      <NumberInput value={identityShipWidth()} setValue={setIdentityShipWidth} min={1} step={1} />
+      <NumberInput value={getInputShipWidthValue()} setValue={setInputShipWidthValue} min={1} step={1} />
       <div style={{ display: 'flex', 'justify-content': 'space-between', gap: '1rem' }}>
         <input type='color' value={getSelectedShip()?.strokeColor || shipStrokeColor()} onInput={selectShipColor} title="Select ship color" />
         <BgImageInput value={bgImage()} setValue={setBgImage} />
