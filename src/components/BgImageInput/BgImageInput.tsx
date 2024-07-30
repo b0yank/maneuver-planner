@@ -4,7 +4,6 @@ import { UploadedImage } from "../../models/image.model";
 export function BgImageInput(props: { uploadedImage: UploadedImage | null, setBgImage: (image: File | null) => void }) {
 
   let inputRef: HTMLInputElement;
-  let imageResizeElementRef: HTMLImageElement;
   
   const updateImageUrl = (event: Event) => {
     
@@ -25,8 +24,6 @@ export function BgImageInput(props: { uploadedImage: UploadedImage | null, setBg
       <img class="bg-image" src="bg-image.svg" />
     </button>
     <input ref={(e) => inputRef = e} type='file' accept='image/*' class='file-input' onChange={updateImageUrl} />
-
-    <img ref={(e) => imageResizeElementRef = e} style={{ display: 'none' }} />
     </>
   )
 }
