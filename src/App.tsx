@@ -5,6 +5,8 @@ import { Ship } from './models/ship.model';
 import { getAngleBetweenPoints, getDistanceBetweenPoints } from './utils/points';
 import { NumberInput } from './components/NumberInput/NumberInput';
 import { BgImageInput } from './components/BgImageInput/BgImageInput';
+import { ManeuverLoadSaveButtons } from './components/ManeuverSaveButton/ManeuverLoadSaveButtons';
+import { createBgImage } from './signals/bg-image';
 
 const DEFAULT_LINE_WIDTH = 1;
 const DEFAULT_STROKE_STYLE = '#000000';
@@ -17,7 +19,7 @@ function App() {
   const [identityShipLength, setIdentityShipLength] = createSignal<number>(311);
   const [identityShipWidth, setIdentityShipWidth] = createSignal<number>(38);
 
-  const [bgImage, setBgImage] = createSignal<{ url: string, width: number, height: number } | null>(null);
+  const [bgImage, setBgImage] = createBgImage();
   const [strokeColor, _setStrokeColor] = createSignal<string>('black');
   const [shipStrokeColor, setShipStrokeColor] = createSignal<string>(DEFAULT_SHIP_STROKE_COLOR);
   const [lineWidth, _setLineWidth] = createSignal<number>(1);
@@ -691,6 +693,7 @@ function App() {
         top: `${menuPositionFromTopRight().y.toString()}px`,
         right: `${menuPositionFromTopRight().x.toString()}px`,
       }}
+      onMouseLeave={endMenuDrag}
       onMouseDown={startMenuDrag}
       onMouseMove={dragMenu}
       onMouseUp={endMenuDrag}
@@ -702,9 +705,14 @@ function App() {
       <NumberInput value={getInputShipWidthValue()} setValue={setInputShipWidthValue} min={1} step={1} />
       <div style={{ display: 'flex', 'justify-content': 'space-between', gap: '1rem' }}>
         <input type='color' value={getSelectedShip()?.strokeColor || shipStrokeColor()} onInput={selectShipColor} title="Select ship color" />
-        <BgImageInput value={bgImage()} setValue={setBgImage} />
+        <BgImageInput uploadedImage={bgImage()} setBgImage={setBgImage} />
       </div>
+      
+      <ManeuverLoadSaveButtons ships={ships()} bgImage={bgImage()} setShips={setShips} setBgImage={setBgImage} />
+      
       {/* <div>{pos()?.x}, {pos()?.y}</div> */}
+
+      
     </div>
     </>
   )

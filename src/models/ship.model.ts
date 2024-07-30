@@ -41,4 +41,12 @@ export namespace Ship {
     origin: DOMPoint;
     rotation: number;
   }
+
+  export interface Dto {
+    id: string;
+    position: Position;
+    length: number;
+    width: number;
+    strokeColor: string;
+  }
 }
