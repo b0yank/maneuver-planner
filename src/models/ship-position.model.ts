@@ -1,7 +1,7 @@
 // import { Matrix3x3 } from './matrix3x3.model';
 
 export interface ShipPosition {
-  origin: DOMPoint;
+  origin: { x: number, y: number };
   rotation: number;
 }
 

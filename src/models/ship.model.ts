@@ -1,39 +1,9 @@
-export class Ship {
-
-  constructor(private _id: string, private _position: Ship.Position, private _strokeColor: string, private _length: number, private _width: number) {
-  }
-
-  get id() {
-    return this._id;
-  }
-
-  get position() {
-    return this._position;
-  }
-
-  get strokeColor(): string {
-    return this._strokeColor;
-  }
-
-  set strokeColor(color: string) {
-    this._strokeColor = color;
-  }
-
-  get length(): number {
-    return this._length;
-  }
-
-  get width(): number {
-    return this._width
-  }
-
-  set length(value: number) {
-    this._length = value;
-  }
-
-  set width(value: number) {
-    this._width = value;
-  }
+export interface Ship {
+  id: string;
+  position: Ship.Position;
+  strokeColor?: string;
+  length: number;
+  width: number;
 }
 
 export namespace Ship {
@@ -42,11 +12,20 @@ export namespace Ship {
     rotation: number;
   }
 
-  export interface Dto {
+  export type Absolute = {
     id: string;
-    position: Position;
+    position: {
+      origin: { x: number, y: number };
+      rotation: number;
+    };
     length: number;
     width: number;
-    strokeColor: string;
+    strokeColor?: string;
+  }
+
+  export type PersistedData = {
+    ships: Absolute[];
+    identityLength: number,
+    identityWidth: number,
   }
 }

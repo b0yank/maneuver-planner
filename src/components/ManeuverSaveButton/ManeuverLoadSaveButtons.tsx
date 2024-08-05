@@ -1,19 +1,13 @@
-import { Setter } from "solid-js";
 import { Ship } from "../../models/ship.model";
 import './ManeuverLoadSaveButtons.css';
 import { UploadedImage } from "../../models/image.model";
-import { effect } from "solid-js/web";
 
 export function ManeuverLoadSaveButtons(props: { 
-  ships: Ship[], 
+  getShipData: () => Ship.PersistedData, 
+  loadShipData: (shipData: Ship.PersistedData) => void, 
   bgImage: UploadedImage | null, 
-  setShips: Setter<Ship[]>, 
   setBgImage: (image: File | null) => void
 }) {
-
-  effect(() => {
-
-  });
 
   let loadFileInputRef: HTMLInputElement;
   let downloadButtonRef: HTMLAnchorElement;
@@ -43,14 +37,8 @@ export function ManeuverLoadSaveButtons(props: {
 
     const savedData: ManeuverSave = {
       bgImage,
-      ships: props.ships.map(ship => ({
-        id: ship.id,
-        position: ship.position,
-        length: ship.length,
-        width: ship.width,
-        strokeColor: ship.strokeColor,
-      }))
-    };
+      shipData: props.getShipData(),
+    };  
 
     const storedStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedData))
 
@@ -68,6 +56,7 @@ export function ManeuverLoadSaveButtons(props: {
       .then(jsonContent => {
         const parsedData = JSON.parse(jsonContent);
         if (isManeuverSave(parsedData)) {
+          debugger
           const loadedData: ManeuverSave = parsedData;
 
           if (loadedData.bgImage) {
@@ -82,15 +71,7 @@ export function ManeuverLoadSaveButtons(props: {
             props.setBgImage(null);
           }
 
-          props.setShips(
-            loadedData.ships.map(shipDto => new Ship(
-              shipDto.id, 
-              shipDto.position, 
-              shipDto.strokeColor, 
-              shipDto.length, 
-              shipDto.width
-            ))
-          );
+          props.loadShipData(loadedData.shipData);
 
           inputElement.value = '';
         }
@@ -107,9 +88,12 @@ export function ManeuverLoadSaveButtons(props: {
               'extension' in data.bgImage && typeof data.bgImage.extension === 'string'
             )
         )
-        && 'ships' in data
-        && Array.isArray(data.ships)
-        && (!data.ships.length || ('position' in data.ships[0] && 'length' in data.ships[0] && 'width' in data.ships[0]));
+        && 'shipData' in data && typeof data.shipData === 'object' && data.shipData !== null
+        && 'ships' in data.shipData && Array.isArray(data.shipData.ships)
+        && (
+              !data.shipData.ships.length || 
+              ('position' in data.shipData.ships[0] && 'length' in data.shipData.ships[0] && 'width' in data.shipData.ships[0])
+        );
   }
 
   return (
@@ -131,5 +115,5 @@ export function ManeuverLoadSaveButtons(props: {
 
 interface ManeuverSave {
   bgImage: { content: string, type: string, extension: string } | null;
-  ships: Ship.Dto[];
+  shipData: Ship.PersistedData;
 }
