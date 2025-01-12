@@ -20,16 +20,10 @@
 }
 
 #menu {
-  position: absolute;
-  right: 0;
-  top: 0;
   display: flex;
   flex-direction: column;  
   padding: .5rem;
   row-gap: .5rem;
-  background-color: #ffffff;
-  border: 1px solid black;
-  cursor: pointer;
 }
 
 #menu input[type="color"] {
@@ -40,4 +34,8 @@
 
 #menu h4 {
   margin: 0;
+}
+
+#arrow-menu {
+  display: flex;
 }

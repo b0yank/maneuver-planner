@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { Index, createEffect, createSignal, onCleanup } from 'solid-js';
 import './App.css';
 import { Ship } from './models/ship.model';
 import { getAngleBetweenPoints, getDistanceBetweenPoints } from './utils/points';
@@ -7,6 +7,9 @@ import { BgImageInput } from './components/BgImageInput/BgImageInput';
 import { ManeuverLoadSaveButtons } from './components/ManeuverSaveButton/ManeuverLoadSaveButtons';
 import { createBgImage } from './signals/bg-image';
 import { createShips } from './signals/ships';
+import { createDirectionArrows } from './signals/direction-arrows';
+import { DirectionArrowData } from './components/DirectionArrowData/DirectionArrowData';
+import { DraggableMenu } from './components/DraggableMenu/DraggableMenu';
 
 const DEFAULT_LINE_WIDTH = 1;
 const DEFAULT_STROKE_STYLE = '#000000';
@@ -19,13 +22,10 @@ function App() {
   const [strokeColor, _setStrokeColor] = createSignal<string>('black');
   const [lineWidth, _setLineWidth] = createSignal<number>(1);
   const [mouseHoldStart, setMouseHoldStart] = createSignal<DOMPointReadOnly | null>(null);
-    const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | 'copy' | null>(null);
+  const [activeCommand, setActiveCommand] = createSignal<'pan' | 'rotate' | 'copy' | null>(null);
 
   const [shiftPressed, setShiftPressed] = createSignal<boolean>(false);
   const [ctrlPressed, setCtrlPressed] = createSignal<boolean>(false);
-
-  const [menuPositionFromTopRight, setMenuPositionFromTopRight] = createSignal<DOMPointReadOnly>(new DOMPointReadOnly(0, 0));
-  const [menuDragStart, setMenuDragStart] = createSignal<DOMPointReadOnly | null>(null);
 
   let canvasObserver: MutationObserver;
 
@@ -55,6 +55,8 @@ function App() {
     shipDataAsPersisted,
     loadShipData,
   } = createShips({ canvasWidth, canvasHeight });
+
+  const { arrows, updateArrow, loadArrows } = createDirectionArrows({ canvasWidth });
 
   const getShipSideOffset = (ship: Ship) => ship.width * 0.3;
   const getShipLengthOffset = (ship: Ship) => ship.length - getShipSideOffset(ship);
@@ -120,8 +122,13 @@ function App() {
     const context = canvas.getContext('2d')!;
     setContext(context);
 
+    context.clearRect(0, 0, canvasWidth(), canvasHeight());
+    context.lineWidth = DEFAULT_LINE_WIDTH;
+    context.strokeStyle = DEFAULT_STROKE_STYLE;
+    context.fillStyle = DEFAULT_FILL_STYLE;
+
     drawAllShips();
-    
+
     canvasObserver = new MutationObserver(drawAllShips);
     canvasObserver.observe(canvas, { attributeFilter: ['width', 'height'] });
 
@@ -143,11 +150,6 @@ function App() {
   const drawAllShips = () => {
 
     const ctx = context()!;
-
-    ctx.clearRect(0, 0, canvasWidth(), canvasHeight());
-    ctx.lineWidth = DEFAULT_LINE_WIDTH;
-    ctx.strokeStyle = DEFAULT_STROKE_STYLE;
-    ctx.fillStyle = DEFAULT_FILL_STYLE;
 
     ships().forEach(drawShip);
     ctx.resetTransform();
@@ -508,33 +510,6 @@ function App() {
     }
   }
 
-  const startMenuDrag = (event: MouseEvent) => {
-    const dragStartPoint = getMouseEventPosition(event);
-    setMenuDragStart(dragStartPoint);
-  }
-
-  const dragMenu = (event: MouseEvent) => {
-    
-    const oldDragPoint = menuDragStart();
-    if (oldDragPoint) {
-      const mousePosition = getMouseEventPosition(event);
-
-      const menuPosition = menuPositionFromTopRight();
-      const menu = document.getElementById('menu');
-      const newMenuPosition = new DOMPointReadOnly(
-        Math.min(Math.max(menuPosition.x + oldDragPoint.x - mousePosition.x, 0), canvasWidth() - (menu?.clientWidth || 0)),
-        Math.min(Math.max(menuPosition.y + mousePosition.y - oldDragPoint.y, 0), canvasHeight() - (menu?.clientHeight || 0)),
-      );
-      
-      setMenuPositionFromTopRight(newMenuPosition);
-      setMenuDragStart(mousePosition);
-    }
-  }
-
-  const endMenuDrag = () => {
-    setMenuDragStart(null);
-  }
-
   const getInputShipLengthValue = () => {
 
     const selectedShip = getSelectedShip();
@@ -564,7 +539,25 @@ function App() {
       onMouseMove={handleMouseMove}
       onTouchMove={handleMouseMove}
     ></canvas>
-    <div 
+
+    <DraggableMenu 
+      id='arrow-menu'
+      initialPosition={{
+        vertical: { from: 'top', value: 0 },
+        horizontal: { from: 'left', value: 0 }
+      }}
+      canvasWidth={canvasWidth}
+      canvasHeight={canvasHeight}
+      canvasPositionFromMouseEvent={getMouseEventPosition}
+    >
+      <Index each={arrows()}>
+        {(arrow) => (
+          <DirectionArrowData arrow={arrow} updateArrow={(direction, strength) => updateArrow(arrow().label, { direction, strength })} />
+        )}
+      </Index>
+    </DraggableMenu>
+
+    {/* <div 
       id="menu"
       style={{
         top: `${menuPositionFromTopRight().y.toString()}px`,
@@ -574,7 +567,17 @@ function App() {
       onMouseDown={startMenuDrag}
       onMouseMove={dragMenu}
       onMouseUp={endMenuDrag}
-    > 
+    >  */}
+    <DraggableMenu 
+      id='menu'
+      initialPosition={{
+        vertical: { from: 'top', value: 0 },
+        horizontal: { from: 'right', value: 0 }
+      }} 
+      canvasWidth={canvasWidth} 
+      canvasHeight={canvasHeight}
+      canvasPositionFromMouseEvent={getMouseEventPosition}
+    >
       {/* <NumberInput value={scale()} setValue={setScale} min={0.2} max={3.0} step={0.05} /> */}
       <h4>Ship length</h4>
       <NumberInput value={getInputShipLengthValue()} setValue={adjustShipLength} min={5} step={1} />
@@ -585,11 +588,21 @@ function App() {
         <BgImageInput uploadedImage={bgImage()} setBgImage={setBgImage} />
       </div>
       
-      <ManeuverLoadSaveButtons getShipData={shipDataAsPersisted} loadShipData={loadShipData} bgImage={bgImage()} setBgImage={setBgImage} />
+      <ManeuverLoadSaveButtons 
+        getShipData={shipDataAsPersisted} 
+        loadShipData={loadShipData} 
+        bgImage={bgImage} 
+        setBgImage={setBgImage} 
+        directionArrows={arrows}
+        loadDirectionArrows={loadArrows}
+        shipStrokeColor={shipStrokeColor}
+        setShipStrokeColor={selectShipColor}
+      />
+    </DraggableMenu>
       
       {/* <div>{pos()?.x}, {pos()?.y}</div> */}
       
-    </div>
+    {/* </div> */}
     </>
   )
 }

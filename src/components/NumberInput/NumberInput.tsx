@@ -1,4 +1,4 @@
-import './NumberInput.css';
+import styles from './NumberInput.module.css';
 
 export function NumberInput(props: { value: number, setValue: (value: number) => void, min?: number, max?: number, step?: number, precision?: number }) {
 
@@ -12,15 +12,19 @@ export function NumberInput(props: { value: number, setValue: (value: number) =>
   }
 
   return (
-    <div class="number-input-container">
-      <button onClick={() => props.setValue(Math.max(props.value - (props.step || 1), props.min || Number.MIN_VALUE))}>-</button>
+    <div class={styles['number-input-container']}>
+      <button class={styles.button} onClick={() => props.setValue(Math.max(props.value - (props.step || 1), props.min || Number.MIN_VALUE))}>
+        <img src='minus.svg' class={styles['button-image']}></img>
+      </button>
       <input
-        class="number-input-value"
+        class={styles['number-input-value']}
         value={props.value.toFixed(props.precision || 0)}
         onInput={(e) => props.setValue(Number(e.target.value))}
         onKeyDown={handleKeyDown}
       />
-      <button onClick={() => props.setValue(Math.min(props.value + (props.step || 1), props.max || Number.MAX_VALUE))}>+</button>
+      <button class={styles.button} onClick={() => props.setValue(Math.min(props.value + (props.step || 1), props.max || Number.MAX_VALUE))}>
+        <img src='plus.svg' class={styles['button-image']}></img>
+      </button>
     </div>
   )
 }

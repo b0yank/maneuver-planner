@@ -1,0 +1,22 @@
+.menu {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+
+  background-color: #ffffff;
+  border: 1px solid black;
+  cursor: pointer;
+}
+
+.expand-button {
+  align-self: flex-end;
+  padding: .25rem;
+  line-height: 0;
+
+  background-color: transparent;
+  border: 0;
+}
+
+.image {
+  width: 1rem;
+}
