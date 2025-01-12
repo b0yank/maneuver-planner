@@ -132,11 +132,6 @@ function App() {
     canvasObserver = new MutationObserver(drawAllShips);
     canvasObserver.observe(canvas, { attributeFilter: ['width', 'height'] });
 
-    const menu = document.getElementById('menu') as HTMLDivElement | null;
-    if (!menu) {
-      throw new Error('Cannot find menu element');
-    }
-
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
   });
